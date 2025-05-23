@@ -77,6 +77,7 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
+    "poupeai_finance_service.bank_accounts",
     "poupeai_finance_service.budgets",
     "poupeai_finance_service.categories",
     "poupeai_finance_service.core",
