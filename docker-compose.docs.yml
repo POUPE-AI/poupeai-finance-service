@@ -1,0 +1,16 @@
+services:
+  docs:
+    image: poupeai_finance_service_local_docs
+    container_name: poupeai_finance_service_local_docs
+    build:
+      context: .
+      dockerfile: ./compose/local/docs/Dockerfile
+    env_file:
+      - ./.envs/.local/.django
+    volumes:
+      - ./docs:/docs:z
+      - ./config:/app/config:z
+      - ./poupeai_finance_service:/app/poupeai_finance_service:z
+    ports:
+      - '9000:9000'
+    command: /start-docs
