@@ -84,6 +84,7 @@ LOCAL_APPS = [
     "poupeai_finance_service.credit_cards",
     "poupeai_finance_service.goals",
     "poupeai_finance_service.transactions",
+    "poupeai_finance_service.users",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -100,7 +101,7 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
-# AUTH_USER_MODEL = "users.User"
+AUTH_USER_MODEL = "users.CustomUser"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
 # LOGIN_REDIRECT_URL = "users:redirect"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-url
@@ -316,8 +317,8 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        # "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
