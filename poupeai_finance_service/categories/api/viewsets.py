@@ -1,11 +1,10 @@
-from typing import Any
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 
 from poupeai_finance_service.users.api.permissions import IsProfileActive
-from poupeai_finance_service.core.querysets import get_profile_by_user
+from poupeai_finance_service.users.querysets import get_profile_by_user
 
 from poupeai_finance_service.categories.api.serializers import CategorySerializer, CreateCategorySerializer
 from poupeai_finance_service.categories.models import Category
