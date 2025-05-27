@@ -1,3 +1,5 @@
+from typing import Iterable
+from django.db.models.base import ModelBase
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
 from django.db import models
