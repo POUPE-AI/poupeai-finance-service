@@ -1,13 +1,21 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group
 from django.utils.translation import gettext_lazy as _
 
 class CustomUser(AbstractUser):
     """
     Custom user model extending Django's AbstractUser.
     """
+    groups = models.ManyToManyField(
+        Group,
+        related_name="customuser_set",
+        blank=True,
+        help_text="The groups this user belongs to.",
+        verbose_name="groups",
+    )
 
     class Meta:
+        app_label = 'users'
         verbose_name = _('User')
         verbose_name_plural = _('Users')
         ordering = ['username']

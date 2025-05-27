@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from users.models import CustomUser, Profile
+from poupeai_finance_service.users.models import CustomUser, Profile
 
 class RegisterUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})

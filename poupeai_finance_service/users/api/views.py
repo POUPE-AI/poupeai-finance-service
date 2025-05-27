@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from users.models import CustomUser, Profile
+from poupeai_finance_service.users.models import CustomUser, Profile
 from users.api.serializers import RegisterUserSerializer, UserProfileSerializer
 
 class RegisterUserAPIView(generics.CreateAPIView):
