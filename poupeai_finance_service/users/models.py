@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from poupeai_finance_service.core.models import TimeStampedModel
 
 class CustomUser(AbstractUser):
     """
@@ -23,7 +24,7 @@ class CustomUser(AbstractUser):
 
     pass
 
-class Profile(models.Model):
+class Profile(TimeStampedModel):
     """
     User profile model to store additional data.
     One-to-one relationship with CustomUser.
