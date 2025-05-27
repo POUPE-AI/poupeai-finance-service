@@ -42,3 +42,15 @@ class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     
     def patch(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
+    
+class UserDeleteAPIView(generics.DestroyAPIView):
+    queryset = Profile.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user.profile
+    
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

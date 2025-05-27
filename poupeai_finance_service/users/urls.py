@@ -3,7 +3,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from users.api.views import RegisterUserAPIView, UserProfileAPIView
+from users.api.views import RegisterUserAPIView, UserProfileAPIView, UserDeleteAPIView
 
 app_name = "users"
 
@@ -12,4 +12,5 @@ urlpatterns = [
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', UserProfileAPIView.as_view(), name='user_profile'),
+    path('me/delete/', UserDeleteAPIView.as_view(), name='user_delete'),
 ]
