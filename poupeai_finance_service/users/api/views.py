@@ -1,7 +1,8 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, views
 from rest_framework.response import Response
 from poupeai_finance_service.users.models import CustomUser, Profile
-from users.api.serializers import RegisterUserSerializer, UserProfileSerializer
+from poupeai_finance_service.users.api.serializers import RegisterUserSerializer, UserProfileSerializer
+from poupeai_finance_service.users.api.permissions import IsProfileActive
 
 class RegisterUserAPIView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -22,7 +23,7 @@ class RegisterUserAPIView(generics.CreateAPIView):
 
 class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsProfileActive]
 
     def get_object(self):
         return self.request.user.profile
@@ -43,7 +44,7 @@ class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
     
-class UserDeleteAPIView(generics.DestroyAPIView):
+class UserDeactivateAPIView(generics.DestroyAPIView):
     queryset = Profile.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
@@ -52,5 +53,35 @@ class UserDeleteAPIView(generics.DestroyAPIView):
     
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        if instance.is_deactivated:
+            return Response(
+                {"detail": "User profile is already deactivated or has scheduled deletion."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        instance.deactivate(schedule_deletion_in_days=30)
+
+        return Response(
+            {"detail": "Profile successfully deactivated. Permanent deletion is scheduled."},
+            status=status.HTTP_200_OK 
+        )
+
+class UserReactivateAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user_profile = request.user.profile
+
+        if not user_profile.is_deactivated:
+            return Response(
+                {"detail": "User profile is already active."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_profile.reactivate()
+
+        return Response(
+            {"detail": "Profile successfully reactivated. Scheduled deletion has been canceled."},
+            status=status.HTTP_200_OK
+        )

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 class CustomUser(AbstractUser):
     """
@@ -37,6 +38,12 @@ class Profile(models.Model):
     gender = models.CharField(_('Gender'), max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
     date_of_birth = models.DateField(_('Date of Birth'), blank=True, null=True)
 
+    is_deactivated = models.BooleanField(default=False)
+    deactivation_scheduled_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         verbose_name = _('Profile')
         verbose_name_plural = _('Profiles')
@@ -44,3 +51,19 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'Profile of {self.user.username}'
+    
+    def deactivate(self, schedule_deletion_in_days=30):
+        """
+        Deactivates the profile and schedules a permanent deletion.
+        """
+        self.is_deactivated = True
+        self.deactivation_scheduled_at = timezone.now() + timezone.timedelta(days=schedule_deletion_in_days)
+        self.save()
+
+    def reactivate(self):
+        """
+        Reactivates the profile, canceling any scheduled deletion.
+        """
+        self.is_deactivated = False
+        self.deactivation_scheduled_at = None
+        self.save()
