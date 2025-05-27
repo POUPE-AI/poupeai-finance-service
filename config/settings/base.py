@@ -6,6 +6,10 @@ from pathlib import Path
 
 import environ
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # poupeai_finance_service/
 APPS_DIR = BASE_DIR / "poupeai_finance_service"
