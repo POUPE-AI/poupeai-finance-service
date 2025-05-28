@@ -1,9 +1,5 @@
-# credit_cards/api/views.py
-
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status # Importe para usar códigos de status HTTP
 
 from poupeai_finance_service.credit_cards.models import CreditCard
 from poupeai_finance_service.credit_cards.api.serializers import CreditCardSerializer

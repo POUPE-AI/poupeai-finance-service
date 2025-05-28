@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from poupeai_finance_service.credit_cards.models import CreditCard
 from poupeai_finance_service.credit_cards.validators import validate_closing_due_days_not_equal
@@ -37,6 +37,22 @@ class CreditCardSerializer(serializers.ModelSerializer):
                 raise DRFValidationError(e.message)
             else:
                 raise DRFValidationError({'due_day': e.message})
+        
+        name = data.get('name', self.instance.name if self.instance else None)
+        
+        profile = self.context.get('profile', self.instance.profile if self.instance else None)
+
+        if profile and name:
+            if self.instance is None:
+                if CreditCard.objects.filter(profile=profile, name=name).exists():
+                    raise DRFValidationError(
+                        {"name": _("A credit card with this name already exists for this profile.")}
+                    )
+            else:
+                if name != self.instance.name and CreditCard.objects.filter(profile=profile, name=name).exists():
+                     raise DRFValidationError(
+                        {"name": _("A credit card with this name already exists for this profile.")}
+                    )
 
         return data
 

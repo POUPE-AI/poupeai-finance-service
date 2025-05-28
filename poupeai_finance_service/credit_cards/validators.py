@@ -21,4 +21,9 @@ def validate_closing_due_days_not_equal(closing_day_value, due_day_value):
     """
     Validates that the closing day and the due date are not the same.
     """
-    pass
+    if closing_day_value is not None and due_day_value is not None:
+        if closing_day_value == due_day_value:
+            raise ValidationError(
+                _("The due day cannot be the same as the closing day."),
+                code='due_day_equals_closing_day'
+            )
