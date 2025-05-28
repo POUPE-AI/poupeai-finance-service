@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.validators import UniqueTogetherValidator
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from poupeai_finance_service.credit_cards.models import CreditCard
@@ -13,7 +14,6 @@ class CreditCardSerializer(serializers.ModelSerializer):
         model = CreditCard
         fields = [
             'id',
-            'profile',
             'name',
             'credit_limit',
             'additional_info',
@@ -24,43 +24,50 @@ class CreditCardSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'profile', 'created_at', 'updated_at', 'brand_display']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'brand_display']
 
     def validate(self, data):
-        closing_day = data.get('closing_day', self.instance.closing_day if self.instance else None)
-        due_day = data.get('due_day', self.instance.due_day if self.instance else None)
-
-        try:
-            validate_closing_due_days_not_equal(closing_day, due_day)
-        except ValidationError as e:
-            if isinstance(e.message, dict):
-                raise DRFValidationError(e.message)
-            else:
-                raise DRFValidationError({'due_day': e.message})
-        
-        name = data.get('name', self.instance.name if self.instance else None)
-        
         profile = self.context.get('profile', self.instance.profile if self.instance else None)
+        
+        if profile:
+            data['profile'] = profile
 
-        if profile and name:
-            if self.instance is None:
-                if CreditCard.objects.filter(profile=profile, name=name).exists():
-                    raise DRFValidationError(
-                        {"name": _("A credit card with this name already exists for this profile.")}
-                    )
-            else:
-                if name != self.instance.name and CreditCard.objects.filter(profile=profile, name=name).exists():
-                     raise DRFValidationError(
-                        {"name": _("A credit card with this name already exists for this profile.")}
-                    )
-
+        self._validate_closing_and_due_days(data)
+        self._validate_unique_name_per_profile(data)
         return data
 
+    def _validate_closing_and_due_days(self, data):
+        closing_day = data.get('closing_day')
+        due_day = data.get('due_day')
+
+        if self.instance:
+            if closing_day is None:
+                closing_day = self.instance.closing_day
+            if due_day is None:
+                due_day = self.instance.due_day
+
+        if closing_day is not None and due_day is not None:
+            try:
+                validate_closing_due_days_not_equal(closing_day, due_day)
+            except ValidationError as e:
+                raise DRFValidationError({'due_day': e.message_dict if hasattr(e, 'message_dict') else str(e)})
+    
+    def _validate_unique_name_per_profile(self, data):
+        name = data.get('name', self.instance.name if self.instance else None)
+        profile = data.get('profile') 
+
+        if not (name and profile):
+            return
+
+        qs = CreditCard.objects.filter(profile=profile, name=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise DRFValidationError({"name": _("A credit card with this name already exists for this profile.")})
+
     def create(self, validated_data):
-        profile = self.context.get('profile')
-
+        profile = validated_data.get('profile')
         if not isinstance(profile, Profile):
-            raise DRFValidationError({'profile': _("Profile context not provided correctly for creation.")})
+             raise DRFValidationError({'profile': _("Profile context not provided correctly for creation.")})
 
-        validated_data['profile'] = profile
         return super().create(validated_data)

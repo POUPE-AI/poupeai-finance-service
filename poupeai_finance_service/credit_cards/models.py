@@ -63,7 +63,6 @@ class CreditCard(TimeStampedModel):
         verbose_name_plural = _('Credit Cards')
 
     def __str__(self):
-        """Represents the CreditCard object in a readable form."""
         return f"{self.name} ({self.brand}) - {self.profile.user.get_username() if self.profile.user else self.profile.id}"
 
     def clean(self):
