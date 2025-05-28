@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
-from poupeai_finance_service.credit_cards.validators import validate_day
+from poupeai_finance_service.credit_cards.validators import validate_day, validate_closing_due_days_not_equal
 
 class CreditCard(TimeStampedModel):
     class BrandChoices(models.TextChoices):
@@ -69,9 +69,7 @@ class CreditCard(TimeStampedModel):
     def clean(self):
         super().clean()
 
-        if self.closing_day is not None and self.due_day is not None:
-            if self.closing_day == self.due_day:
-                raise ValidationError(
-                    {'due_day': _("The due day cannot be the same as the closing day.")},
-                    code='due_day_equals_closing_day'
-                )
+        try:
+            validate_closing_due_days_not_equal(self.closing_day, self.due_day)
+        except ValidationError as e:
+            raise ValidationError({'due_day': e.message})
