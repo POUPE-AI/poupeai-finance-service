@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/v1/users/', include('users.urls', namespace='users')),
     path('api/v1/categories/', include('categories.urls', namespace='categories')),
     path('api/v1/bank-accounts/', include('bank_accounts.urls', namespace='bank-accounts')),
+    path("api/v1/credit-cards/", include("credit_cards.urls", namespace="credit_cards")),
 ]
 
 # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
