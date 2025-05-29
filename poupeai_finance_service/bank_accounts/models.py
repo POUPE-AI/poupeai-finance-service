@@ -16,6 +16,7 @@ class BankAccount(TimeStampedModel):
         validators=[MinValueValidator(0, message='Initial balance cannot be negative')]
     )
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='bank_accounts')
+    is_default = models.BooleanField(_('Is Default'), default=False)
 
     class Meta:
         constraints = [
@@ -27,6 +28,11 @@ class BankAccount(TimeStampedModel):
 
         verbose_name = _('Bank Account')
         verbose_name_plural = _('Bank Accounts')
+    
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            BankAccount.objects.filter(profile=self.profile).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'Bank Account: {self.name}'
