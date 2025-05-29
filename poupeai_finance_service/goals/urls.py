@@ -9,5 +9,5 @@ app_name = 'goals'
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('<int:id>/deposits/', GoalDepositViewSet.as_view({'post': 'create'}), name='goal-deposits'),
+    path('<int:id>/deposits/', GoalDepositViewSet.as_view({'post': 'create'}), name='goal_deposits'),
 ]
