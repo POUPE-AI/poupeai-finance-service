@@ -1,8 +1,10 @@
-from rest_framework import mixins, viewsets
+from requests import Response
+from rest_framework import mixins, viewsets, status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils.translation import gettext_lazy as _
 
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.credit_cards.api.serializers import CreditCardSerializer
@@ -49,3 +51,15 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
         """
         user_profile = self.request.user.profile
         return self.queryset.filter(credit_card__profile=user_profile)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        try:
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {"detail": _(f"Error deleting invoice: {str(e)}")},
+                status=status.HTTP_400_BAD_REQUEST
+            )

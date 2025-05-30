@@ -59,6 +59,11 @@ class TransactionService:
             raise DjangoValidationError(
                 {"transaction_date": _("Cannot change transaction date for credit card transactions.")}
             )
+
+        if instance.source_type == 'CREDIT_CARD' and 'credit_card' in data:
+            raise DjangoValidationError(
+                {"credit_card": _("Cannot change credit card for credit card transactions.")}
+            )
         
         if 'category' in data and data['category']:
             data['type'] = data['category'].type
@@ -66,7 +71,7 @@ class TransactionService:
         if instance.source_type == 'CREDIT_CARD' and instance.is_installment:
             restricted_fields = [
                 'total_installments', 'is_installment',
-                'purchase_group_uuid', 'credit_card'
+                'purchase_group_uuid'
             ]
             for field in restricted_fields:
                 if field in data and data[field] != getattr(instance, field):
