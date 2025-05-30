@@ -19,9 +19,6 @@ from poupeai_finance_service.transactions.api.serializers import (
 )
 from poupeai_finance_service.core.permissions import IsOwnerProfile
 
-class TransactionFilter(filters.FilterSet):
-    pass
-
 class TransactionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing financial transactions.

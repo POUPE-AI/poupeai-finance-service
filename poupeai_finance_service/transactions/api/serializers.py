@@ -189,6 +189,8 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
 
     @db_transaction.atomic
     def create(self, validated_data):
+        apply_to_all_installments = validated_data.pop('apply_to_all_installments', False)
+
         profile = validated_data['profile']
         source_type = validated_data['source_type']
         is_installment = validated_data.get('is_installment', False)

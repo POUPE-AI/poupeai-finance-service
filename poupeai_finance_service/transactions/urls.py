@@ -5,8 +5,10 @@ from poupeai_finance_service.transactions.api.viewsets import TransactionViewSet
 app_name = 'transactions'
 
 router = DefaultRouter()
-router.register(r'transactions', TransactionViewSet, basename='transaction')
-router.register(r'invoices', InvoiceViewSet, basename='invoice')
+router.register(r'', TransactionViewSet, basename='transactions')
+router.register(r'invoices', InvoiceViewSet, basename='invoices')
+
+app_name = 'transactions'
 
 urlpatterns = [
     path('', include(router.urls)),
