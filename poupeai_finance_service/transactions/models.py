@@ -1,15 +1,16 @@
 import uuid
-from django.db import models, transaction
-from django.core.validators import MinValueValidator
-from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 
-from poupeai_finance_service.core.models import TimeStampedModel
-from poupeai_finance_service.users.models import Profile
-from poupeai_finance_service.categories.models import Category
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from django.db import models
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
 from poupeai_finance_service.bank_accounts.models import BankAccount
+from poupeai_finance_service.categories.models import Category
+from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
+from poupeai_finance_service.users.models import Profile
 from .managers import TransactionManager
     
 class Transaction(TimeStampedModel):

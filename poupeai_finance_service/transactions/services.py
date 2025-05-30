@@ -1,12 +1,11 @@
-from django.db import transaction as db_transaction
-from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction as db_transaction
+from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.credit_cards.models import Invoice
+from poupeai_finance_service.transactions.models import Transaction
 
 class TransactionService:
     @staticmethod
