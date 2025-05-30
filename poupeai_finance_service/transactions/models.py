@@ -10,6 +10,7 @@ from poupeai_finance_service.users.models import Profile
 from poupeai_finance_service.categories.models import Category
 from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.credit_cards.models import CreditCard
+from .managers import InvoiceManager, TransactionManager
 
 class Invoice(TimeStampedModel):
     """
@@ -32,6 +33,8 @@ class Invoice(TimeStampedModel):
     )
     due_date = models.DateField(_('Due Date'))
     paid = models.BooleanField(_('Paid'), default=False)
+
+    objects = InvoiceManager()
 
     class Meta:
         verbose_name = _('Invoice')
@@ -131,6 +134,8 @@ class Transaction(TimeStampedModel):
     original_transaction_id = models.CharField(_('Original Transaction ID'), max_length=100, blank=True, null=True)
     original_statement_description = models.TextField(_('Original Statement Description'), blank=True, null=True)
     attachment = models.CharField(_('Attachment URL'), max_length=255, blank=True, null=True)
+
+    objects = TransactionManager()
 
     class Meta:
         verbose_name = _('Transaction')

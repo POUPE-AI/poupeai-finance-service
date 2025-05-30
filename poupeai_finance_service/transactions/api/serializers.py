@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction as db_transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -6,6 +7,7 @@ from django.core.exceptions import ValidationError
 import calendar
 import uuid
 
+from poupeai_finance_service.transactions.services import TransactionService
 from poupeai_finance_service.transactions.models import Transaction, Invoice
 from poupeai_finance_service.categories.models import Category
 from poupeai_finance_service.bank_accounts.models import BankAccount
@@ -43,62 +45,54 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['profile', 'type', 'status', 'purchase_group_uuid', 'invoice', 'created_at', 'updated_at']
 
+    def validate_profile_related_objects(self, profile, category, bank_account, credit_card):
+        if category and category.profile != profile:
+            raise serializers.ValidationError({"category": _("Category does not belong to your profile.")})
+        if bank_account and bank_account.profile != profile:
+            raise serializers.ValidationError({"bank_account": _("Bank account does not belong to your profile.")})
+        if credit_card and credit_card.profile != profile:
+            raise serializers.ValidationError({"credit_card": _("Credit card does not belong to your profile.")})
+
+
     def validate(self, data):
         if not self.instance and 'profile' not in data:
             data['profile'] = self.context['request'].user.profile
-
+        
         profile = data.get('profile') or (self.instance and self.instance.profile)
 
-        category = data.get('category')
-        if category and category.profile != profile:
-            raise serializers.ValidationError({"category": _("Category does not belong to your profile.")})
+        self.validate_profile_related_objects(
+            profile,
+            data.get('category'),
+            data.get('bank_account'),
+            data.get('credit_card')
+        )
 
         source_type = data.get('source_type')
         bank_account = data.get('bank_account')
         credit_card = data.get('credit_card')
         is_installment = data.get('is_installment', False)
-        installment_number = data.get('installment_number')
-        total_installments = data.get('total_installments')
 
         if source_type == 'BANK_ACCOUNT':
             if credit_card:
                 raise serializers.ValidationError({"credit_card": _("Credit card cannot be set for bank account transactions.")})
-            if is_installment or installment_number or total_installments:
                 raise serializers.ValidationError(_("Installment fields cannot be set for bank account transactions."))
-            if not bank_account:
-                if not self.instance:
-                    default_bank_account = BankAccount.objects.filter(profile=profile, is_default=True).first()
-                    if default_bank_account:
-                        data['bank_account'] = default_bank_account
-                    else:
-                        raise serializers.ValidationError({"bank_account": _("Bank account is required for bank account transactions or a default bank account must be set.")})
-                else:
-                    if not bank_account and self.instance.source_type == 'BANK_ACCOUNT':
-                         raise serializers.ValidationError({"bank_account": _("Bank account is required for bank account transactions.")})
-            elif bank_account.profile != profile:
-                raise serializers.ValidationError({"bank_account": _("Bank account does not belong to your profile.")})
 
         elif source_type == 'CREDIT_CARD':
             if bank_account:
                 raise serializers.ValidationError({"bank_account": _("Bank account cannot be set for credit card transactions.")})
             if not credit_card:
                 raise serializers.ValidationError({"credit_card": _("Credit card is required for credit card transactions.")})
-            elif credit_card.profile != profile:
-                raise serializers.ValidationError({"credit_card": _("Credit card does not belong to your profile.")})
             
             if is_installment:
-                if not total_installments or total_installments < 1:
-                    raise serializers.ValidationError({"total_installments": _("Total installments must be a positive number for installment transactions.")})
-                if not installment_number or not (1 <= installment_number <= total_installments):
-                    raise serializers.ValidationError({"installment_number": _("Installment number must be between 1 and total installments.")})
+                if not data.get('total_installments'):
+                    raise serializers.ValidationError({"total_installments": _("Total installments is required for installment transactions.")})
+                if not data.get('installment_number'):
+                    raise serializers.ValidationError({"installment_number": _("Installment number is required for installment transactions.")})
             else:
-                if total_installments is not None or installment_number is not None:
+                if data.get('total_installments') is not None or data.get('installment_number') is not None:
                     raise serializers.ValidationError(_("Installment specific fields should be null if not an installment."))
         else:
             raise serializers.ValidationError({"source_type": _("Invalid source type.")})
-
-        if category:
-            data['type'] = category.type
 
         return data
 
@@ -135,7 +129,7 @@ class TransactionDetailSerializer(TransactionBaseSerializer):
 class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
     """
     Serializer for creating and updating transactions.
-    Handles the logic for installment creation and specific update restrictions.
+    Delegates complex logic to TransactionService.
     """
     apply_to_all_installments = serializers.BooleanField(write_only=True, required=False, default=False)
 
@@ -149,167 +143,35 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
             'apply_to_all_installments'
         ]
         extra_kwargs = {
-            'installment_number': {'required': False},
-            'total_installments': {'required': False},
-            'original_purchase_description': {'required': False},
-            'original_transaction_id': {'required': False},
-            'original_statement_description': {'required': False},
-            'attachment': {'required': False},
-            'bank_account': {'required': False},
-            'credit_card': {'required': False},
+            'installment_number': {'required': False, 'allow_null': True},
+            'total_installments': {'required': False, 'allow_null': True},
+            'original_purchase_description': {'required': False, 'allow_null': True},
+            'original_transaction_id': {'required': False, 'allow_null': True},
+            'original_statement_description': {'required': False, 'allow_null': True},
+            'attachment': {'required': False, 'allow_null': True},
+            'bank_account': {'required': False, 'allow_null': True},
+            'credit_card': {'required': False, 'allow_null': True},
             'is_installment': {'required': False},
+            'source_type': {'read_only': True}
         }
-
+    
     def validate(self, data):
         data = super().validate(data)
-
-        if self.instance:
-            if 'source_type' in data and data['source_type'] != self.instance.source_type:
-                raise serializers.ValidationError({"source_type": _("Source type cannot be changed after creation.")})
-            
-            if 'credit_card' in data and data['credit_card'] != self.instance.credit_card:
-                raise serializers.ValidationError({"credit_card": _("Credit card cannot be changed for an existing transaction.")})
-
-            if self.instance.source_type == 'CREDIT_CARD':
-                if self.instance.is_installment:
-                    restricted_installment_fields = [
-                        'total_installments', 'transaction_date', 'is_installment',
-                        'purchase_group_uuid', 'invoice'
-                    ]
-                    for field in restricted_installment_fields:
-                        if field in data and data[field] != getattr(self.instance, field):
-                             raise serializers.ValidationError({field: _(f"{field.replace('_', ' ').title()} cannot be changed for an installment transaction.")})
-                
-                if 'bank_account' in data and data['bank_account'] is not None:
-                    raise serializers.ValidationError({"bank_account": _("Bank account cannot be set for credit card transactions.")})
-                if 'source_type' in data and data['source_type'] == 'BANK_ACCOUNT':
-                    raise serializers.ValidationError({"source_type": _("Cannot change source type from CREDIT_CARD to BANK_ACCOUNT.")})
-
         return data
 
-    @db_transaction.atomic
     def create(self, validated_data):
-        apply_to_all_installments = validated_data.pop('apply_to_all_installments', False)
-
         profile = validated_data['profile']
-        source_type = validated_data['source_type']
-        is_installment = validated_data.get('is_installment', False)
-
-        if source_type == 'CREDIT_CARD' and is_installment:
-            credit_card = validated_data['credit_card']
-            total_installments = validated_data['total_installments']
-            transaction_date = validated_data['transaction_date']
-            original_purchase_description = validated_data.get('description')
-
-            purchase_group_uuid = uuid.uuid4()
-
-            transactions = []
-            for i in range(1, total_installments + 1):
-                installment_transaction_date = self._calculate_installment_date(transaction_date, i-1)
-                invoice = self._get_or_create_invoice(
-                    credit_card=credit_card,
-                    transaction_date=installment_transaction_date
-                )
-
-                installment_data = {
-                    **validated_data,
-                    'profile': profile,
-                    'is_installment': True,
-                    'installment_number': i,
-                    'total_installments': total_installments,
-                    'purchase_group_uuid': purchase_group_uuid,
-                    'original_purchase_description': original_purchase_description,
-                    'transaction_date': installment_transaction_date,
-                    'invoice': invoice,
-                    'description': f"{original_purchase_description} ({i}/{total_installments})",
-                }
-                transaction_instance = Transaction(**installment_data)
-                transaction_instance.full_clean()
-                transaction_instance.save()
-                transactions.append(transaction_instance)
-            
-            return transactions[0] if transactions else super().create(validated_data)
-        else:
-            validated_data['type'] = validated_data['category'].type
-            return super().create(validated_data)
-
-    @db_transaction.atomic
-    def update(self, instance, validated_data):
-        
         apply_to_all_installments = validated_data.pop('apply_to_all_installments', False)
 
-        if instance.source_type == 'CREDIT_CARD' and instance.is_installment:
-            if apply_to_all_installments:
-                updated_fields = {}
-                if 'category' in validated_data and validated_data['category'] != instance.category:
-                    updated_fields['category'] = validated_data['category']
-                    updated_fields['type'] = validated_data['category'].type
-                if 'amount' in validated_data and validated_data['amount'] != instance.amount:
-                    updated_fields['amount'] = validated_data['amount']
-                if 'description' in validated_data and validated_data['description'] != instance.description:
-                    updated_fields['original_purchase_description'] = validated_data['description']
-                
-                if updated_fields:
-                    Transaction.objects.filter(purchase_group_uuid=instance.purchase_group_uuid).update(
-                        **updated_fields,
-                        updated_at=timezone.now()
-                    )
-                    instance.refresh_from_db()
-            else:
-                if 'category' in validated_data and validated_data['category'] != instance.category:
-                    instance.category = validated_data['category']
-                    instance.type = validated_data['category'].type
-                if 'amount' in validated_data and validated_data['amount'] != instance.amount:
-                    instance.amount = validated_data['amount']
-                if 'description' in validated_data and validated_data['description'] != instance.description:
-                    instance.description = validated_data['description']
-                for attr, value in validated_data.items():
-                    if attr not in ['category', 'amount', 'description']:
-                        setattr(instance, attr, value)
-                instance.save()
-        else:
-            if 'category' in validated_data:
-                validated_data['type'] = validated_data['category'].type
-            
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
+        try:
+            return TransactionService.create_transaction(profile, validated_data)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
 
-        return instance
+    def update(self, instance, validated_data):
+        apply_to_all_installments = validated_data.pop('apply_to_all_installments', False)
 
-    def _calculate_installment_date(self, base_date, installment_offset):
-        """
-        Calculates the date for a given installment.
-        Adjusts month and year if needed.
-        """
-        year = base_date.year
-        month = base_date.month + installment_offset
-
-        while month > 12:
-            month -= 12
-            year += 1
-        
-        last_day_of_month = calendar.monthrange(year, month)[1]
-        day = min(base_date.day, last_day_of_month)
-
-        return base_date.replace(year=year, month=month, day=day)
-
-    def _get_or_create_invoice(self, credit_card, transaction_date):
-        """
-        Gets or creates an invoice for the given credit card and transaction date.
-        Assumes invoice due_day is credit_card.due_day for that month/year.
-        """
-        invoice_month = transaction_date.month
-        invoice_year = transaction_date.year
-
-        last_day_of_invoice_month = calendar.monthrange(invoice_year, invoice_month)[1]
-        due_day = min(credit_card.due_day, last_day_of_invoice_month)
-        invoice_due_date = transaction_date.replace(year=invoice_year, month=invoice_month, day=due_day)
-
-        invoice, created = Invoice.objects.get_or_create(
-            credit_card=credit_card,
-            month=invoice_month,
-            year=invoice_year,
-            defaults={'due_date': invoice_due_date}
-        )
-        return invoice
+        try:
+            return TransactionService.update_transaction(instance, validated_data, apply_to_all_installments)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
