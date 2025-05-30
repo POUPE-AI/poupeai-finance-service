@@ -2,10 +2,11 @@ from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
-from poupeai_finance_service.credit_cards.validators import validate_day, validate_closing_due_days_not_equal
 from .managers import InvoiceManager
+from .validators import validate_day, validate_closing_due_days_not_equal
 
 class CreditCard(TimeStampedModel):
     class BrandChoices(models.TextChoices):

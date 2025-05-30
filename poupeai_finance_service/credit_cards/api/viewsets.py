@@ -1,17 +1,19 @@
 from requests import Response
-from rest_framework import mixins, viewsets, status
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import filters
-from django_filters.rest_framework import DjangoFilterBackend
-from django.utils.translation import gettext_lazy as _
 
-from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
-from poupeai_finance_service.credit_cards.api.serializers import CreditCardSerializer
-from poupeai_finance_service.users.api.permissions import IsProfileActive
+from django.utils.translation import gettext_lazy as _
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, mixins, status, viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet
+
 from poupeai_finance_service.core.permissions import IsOwnerProfile
+from poupeai_finance_service.credit_cards.api.serializers import (
+    CreditCardSerializer,
+    InvoiceSerializer,
+)
+from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
+from poupeai_finance_service.users.api.permissions import IsProfileActive
 from poupeai_finance_service.users.querysets import get_profile_by_user
-from poupeai_finance_service.credit_cards.api.serializers import InvoiceSerializer
 
 class CreditCardViewSet(ModelViewSet):
     queryset = CreditCard.objects.all()

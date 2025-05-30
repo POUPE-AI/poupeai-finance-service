@@ -1,5 +1,6 @@
-from django.db import models
 import calendar
+
+from django.db import models
 
 class InvoiceManager(models.Manager):
     def get_or_create_invoice(self, credit_card, transaction_date):

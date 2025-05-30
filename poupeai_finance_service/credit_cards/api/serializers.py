@@ -1,8 +1,8 @@
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from rest_framework.validators import UniqueTogetherValidator
-from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
+
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.credit_cards.validators import validate_closing_due_days_not_equal
 from poupeai_finance_service.users.models import Profile

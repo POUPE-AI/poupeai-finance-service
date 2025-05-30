@@ -1,5 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
 from poupeai_finance_service.credit_cards.api.viewsets import CreditCardViewSet, InvoiceViewSet
 
 router = DefaultRouter()

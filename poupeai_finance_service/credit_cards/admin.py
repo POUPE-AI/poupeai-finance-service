@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
+
 from poupeai_finance_service.credit_cards.models import CreditCard
 
 @admin.register(CreditCard)
