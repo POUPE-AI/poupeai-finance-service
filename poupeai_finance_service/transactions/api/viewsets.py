@@ -99,10 +99,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
         try:
             TransactionService.delete_transaction(instance, deletion_option)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except ValidationError as e:
-            raise DRFValidationError(e.message_dict)
+        except DRFValidationError as e:
+            raise DRFValidationError(e.detail)
         except Exception as e:
-            # Captura outras exceções inesperadas
             return Response(
                 {"detail": _(f"Ocorreu um erro ao tentar deletar a transação: {e}")},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
