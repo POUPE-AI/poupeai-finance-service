@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from poupeai_finance_service.transactions.services import TransactionService
 from poupeai_finance_service.transactions.models import Transaction
@@ -105,3 +105,31 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 {"detail": _(f"An error occurred while trying to delete the transaction: {e}")},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            apply_to_all = request.data.get('apply_to_all_installments', False)
+            updated_instance = TransactionService.update_transaction(
+                instance,
+                serializer.validated_data,
+                apply_to_all
+            )
+            return Response(self.get_serializer(updated_instance).data)
+        except DjangoValidationError as e:
+            if hasattr(e, 'message_dict'):
+                raise DRFValidationError(e.message_dict)
+            raise DRFValidationError({'detail': str(e)})
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        deletion_option = request.data.get('deletion_option')
+        
+        try:
+            TransactionService.delete_transaction(instance, deletion_option)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except DRFValidationError as e:
+            raise DRFValidationError(e.detail)
