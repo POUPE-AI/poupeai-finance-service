@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from poupeai_finance_service.transactions.models import Transaction, Invoice
+from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.bank_accounts.models import BankAccount
 
 class TransactionService:
@@ -97,6 +97,11 @@ class TransactionService:
         deletion_option: 'CURRENT_ONLY' or 'CURRENT_AND_FUTURE' for installments.
         """
         if instance.source_type == 'CREDIT_CARD' and instance.is_installment:
+            if deletion_option is None:
+                raise DjangoValidationError(
+                    _("For installment credit card transactions, 'deletion_option' must be provided ('CURRENT_ONLY' or 'CURRENT_AND_FUTURE').")
+                )
+            
             if deletion_option == 'CURRENT_ONLY':
                 instance.delete()
                 remaining_installments = Transaction.objects.filter(
@@ -115,15 +120,27 @@ class TransactionService:
                         total_installments=new_total_installments,
                         updated_at=timezone.now()
                     )
+                else:
+                    Transaction.objects.filter(purchase_group_uuid=instance.purchase_group_uuid).update(
+                        total_installments=None,
+                        updated_at=timezone.now()
+                    )
 
             elif deletion_option == 'CURRENT_AND_FUTURE':
                 Transaction.objects.filter(
                     purchase_group_uuid=instance.purchase_group_uuid,
                     installment_number__gte=instance.installment_number
                 ).delete()
+                past_installments = Transaction.objects.filter(
+                    purchase_group_uuid=instance.purchase_group_uuid
+                )
+                if past_installments.exists():
+                    new_total_installments = past_installments.count()
+                    past_installments.update(total_installments=new_total_installments, updated_at=timezone.now())
+                
             else:
                 raise DjangoValidationError(
-                    _("Para transações parceladas, 'deletion_option' deve ser 'CURRENT_ONLY' ou 'CURRENT_AND_FUTURE'.")
+                    _("For installment transactions, 'deletion_option' must be either 'CURRENT_ONLY' or 'CURRENT_AND_FUTURE'.")
                 )
         else:
             instance.delete()

@@ -4,22 +4,7 @@ from rest_framework import serializers
 import calendar
 import uuid
 
-class InvoiceManager(models.Manager):
-    def get_or_create_invoice(self, credit_card, transaction_date):
-        invoice_month = transaction_date.month
-        invoice_year = transaction_date.year
-
-        last_day_of_invoice_month = calendar.monthrange(invoice_year, invoice_month)[1]
-        due_day = min(credit_card.due_day, last_day_of_invoice_month)
-        invoice_due_date = transaction_date.replace(year=invoice_year, month=invoice_month, day=due_day)
-
-        invoice, created = self.get_or_create(
-            credit_card=credit_card,
-            month=invoice_month,
-            year=invoice_year,
-            defaults={'due_date': invoice_due_date}
-        )
-        return invoice
+from poupeai_finance_service.credit_cards.models import Invoice
 
 class TransactionManager(models.Manager):
     def _calculate_installment_date(self, base_date, installment_offset):
@@ -37,7 +22,6 @@ class TransactionManager(models.Manager):
 
     @db_transaction.atomic
     def create_installment_transactions(self, **validated_data):
-        from .models import Invoice
         credit_card = validated_data['credit_card']
         total_installments = validated_data['total_installments']
         transaction_date = validated_data['transaction_date']

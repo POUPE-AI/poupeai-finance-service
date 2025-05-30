@@ -8,23 +8,10 @@ import calendar
 import uuid
 
 from poupeai_finance_service.transactions.services import TransactionService
-from poupeai_finance_service.transactions.models import Transaction, Invoice
+from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.categories.models import Category
 from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.credit_cards.models import CreditCard
-
-class InvoiceSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the Invoice model.
-    """
-    class Meta:
-        model = Invoice
-        fields = [
-            'id', 'credit_card', 'month', 'year',
-            'amount_paid', 'due_date', 'paid',
-            'total_amount', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['total_amount', 'created_at', 'updated_at']
 
 class TransactionBaseSerializer(serializers.ModelSerializer):
     """
@@ -157,7 +144,29 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
         }
     
     def validate(self, data):
-        data = super().validate(data)
+        instance = self.instance
+
+        source_type = data.get('source_type', getattr(instance, 'source_type', None))
+        category = data.get('category', getattr(instance, 'category', None))
+        is_installment = data.get('is_installment', getattr(instance, 'is_installment', False))
+        installment_number = data.get('installment_number', getattr(instance, 'installment_number', None))
+        total_installments = data.get('total_installments', getattr(instance, 'total_installments', None))
+        
+        if source_type == 'CREDIT_CARD':
+            if category and category.type != 'EXPENSE':
+                raise serializers.ValidationError({"category": _("Credit card transactions must be of 'EXPENSE' category type.")})
+
+        if source_type == 'CREDIT_CARD' and is_installment:
+            if total_installments is None or total_installments < 1:
+                raise serializers.ValidationError({"total_installments": _("Total installments must be a positive number for installment transactions.")})
+            if installment_number is None or not (1 <= installment_number <= total_installments):
+                raise serializers.ValidationError({"installment_number": _("Installment number must be between 1 and total installments.")})
+        elif not is_installment:
+            if total_installments is not None or installment_number is not None:
+                raise serializers.ValidationError(_("Installment specific fields should be null if not an installment."))
+            if source_type == 'CREDIT_CARD' and 'invoice' in data and data['invoice'] is not None:
+                 raise serializers.ValidationError({"invoice": _("Invoice should not be directly linked if not an installment transaction (will be linked via installment logic).")})
+        
         return data
 
     def create(self, validated_data):

@@ -9,46 +9,8 @@ from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
 from poupeai_finance_service.categories.models import Category
 from poupeai_finance_service.bank_accounts.models import BankAccount
-from poupeai_finance_service.credit_cards.models import CreditCard
-from .managers import InvoiceManager, TransactionManager
-
-class Invoice(TimeStampedModel):
-    """
-    Model representing a credit card invoice.
-    """
-    credit_card = models.ForeignKey(
-        CreditCard,
-        on_delete=models.CASCADE,
-        related_name='invoices',
-        verbose_name=_('Credit Card')
-    )
-    month = models.SmallIntegerField(_('Month'), validators=[MinValueValidator(1), MinValueValidator(12)])
-    year = models.SmallIntegerField(_('Year'), validators=[MinValueValidator(2000)])
-    amount_paid = models.DecimalField(
-        _('Amount Paid'),
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0)]
-    )
-    due_date = models.DateField(_('Due Date'))
-    paid = models.BooleanField(_('Paid'), default=False)
-
-    objects = InvoiceManager()
-
-    class Meta:
-        verbose_name = _('Invoice')
-        verbose_name_plural = _('Invoices')
-        unique_together = ('credit_card', 'month', 'year')
-        ordering = ['-year', '-month']
-
-    def __str__(self):
-        return f"{self.credit_card.name} - {self.month}/{self.year}"
-
-    @property
-    def total_amount(self):
-        """Calculates the total amount of the invoice based on associated credit card transactions."""
-        return self.transactions.aggregate(total=models.Sum('amount'))['total'] or 0
+from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
+from .managers import TransactionManager
     
 class Transaction(TimeStampedModel):
     """
@@ -57,13 +19,6 @@ class Transaction(TimeStampedModel):
     SOURCE_TYPES = (
         ('BANK_ACCOUNT', _('Bank Account')),
         ('CREDIT_CARD', _('Credit Card')),
-    )
-
-    TRANSACTION_STATUSES = (
-        ('PAID', _('Paid')),
-        ('PENDING', _('Pending')),
-        ('OVERDUE', _('Overdue')),
-        ('CANCELLED', _('Cancelled')),
     )
 
     profile = models.ForeignKey(
@@ -159,6 +114,9 @@ class Transaction(TimeStampedModel):
             if self.bank_account:
                 raise ValidationError(_("Bank account cannot be set for credit card transactions."))
             
+            if self.category and self.category.type != 'EXPENSE':
+                raise ValidationError(_("Credit card transactions must be of 'EXPENSE' category type."))
+
             if self.is_installment:
                 if not self.total_installments or self.total_installments < 1:
                     raise ValidationError(_("Total installments must be a positive number for installment transactions."))

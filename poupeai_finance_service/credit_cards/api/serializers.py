@@ -3,7 +3,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.validators import UniqueTogetherValidator
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
-from poupeai_finance_service.credit_cards.models import CreditCard
+from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.credit_cards.validators import validate_closing_due_days_not_equal
 from poupeai_finance_service.users.models import Profile
 
@@ -71,3 +71,16 @@ class CreditCardSerializer(serializers.ModelSerializer):
              raise DRFValidationError({'profile': _("Profile context not provided correctly for creation.")})
 
         return super().create(validated_data)
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Invoice model.
+    """
+    class Meta:
+        model = Invoice
+        fields = [
+            'id', 'credit_card', 'month', 'year',
+            'amount_paid', 'due_date', 'paid',
+            'total_amount', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['total_amount', 'created_at', 'updated_at']
