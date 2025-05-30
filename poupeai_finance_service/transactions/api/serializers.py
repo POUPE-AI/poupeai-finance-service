@@ -72,6 +72,8 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         credit_card = data.get('credit_card')
         is_installment = data.get('is_installment', False)
 
+        print(f"DEBUG: source_type recebido no serializer.validate: {source_type} (type: {type(source_type)})")
+
         if source_type == 'BANK_ACCOUNT':
             if credit_card:
                 raise serializers.ValidationError({"credit_card": _("Credit card cannot be set for bank account transactions.")})
@@ -151,8 +153,7 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
             'attachment': {'required': False, 'allow_null': True},
             'bank_account': {'required': False, 'allow_null': True},
             'credit_card': {'required': False, 'allow_null': True},
-            'is_installment': {'required': False},
-            'source_type': {'read_only': True}
+            'is_installment': {'required': False}
         }
     
     def validate(self, data):
