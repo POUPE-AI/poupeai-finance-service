@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.bank_accounts.models import BankAccount
+from poupeai_finance_service.credit_cards.models import Invoice
 
 class TransactionService:
     @staticmethod
@@ -32,6 +33,14 @@ class TransactionService:
             transactions = Transaction.objects.create_installment_transactions(**data)
             return transactions[0] if transactions else None
         else:
+            if source_type == 'CREDIT_CARD' and 'transaction_date' in data:
+                credit_card = data.get('credit_card')
+                if credit_card:
+                    data['invoice'] = Invoice.objects.get_or_create_invoice(
+                        credit_card=credit_card,
+                        transaction_date=data['transaction_date']
+                    )
+
             transaction_instance = Transaction(**data)
             transaction_instance.full_clean()
             transaction_instance.save()

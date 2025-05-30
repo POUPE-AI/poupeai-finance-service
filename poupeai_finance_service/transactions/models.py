@@ -114,8 +114,8 @@ class Transaction(TimeStampedModel):
             if self.bank_account:
                 raise ValidationError(_("Bank account cannot be set for credit card transactions."))
             
-            if self.category and self.category.type != 'EXPENSE':
-                raise ValidationError(_("Credit card transactions must be of 'EXPENSE' category type."))
+            if self.category and self.category.type != 'expense':
+                raise ValidationError(_("Credit card transactions must be of 'expense' category type."))
 
             if self.is_installment:
                 if not self.total_installments or self.total_installments < 1:
@@ -125,8 +125,12 @@ class Transaction(TimeStampedModel):
             else:
                 if self.total_installments is not None or self.installment_number is not None:
                     raise ValidationError(_("Installment specific fields should be null if not an installment."))
-                if self.invoice:
-                    raise ValidationError(_("Invoice should not be directly linked if not an installment transaction (will be linked via installment logic)."))
+                
+                if not self.invoice and self.transaction_date:
+                    self.invoice = Invoice.objects.get_or_create_invoice(
+                        credit_card=self.credit_card,
+                        transaction_date=self.transaction_date
+                    )
 
         if self.category and self.type != self.category.type:
             self.type = self.category.type

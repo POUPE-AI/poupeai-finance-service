@@ -1,17 +1,9 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction as db_transaction
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-import calendar
-import uuid
 
 from poupeai_finance_service.transactions.services import TransactionService
 from poupeai_finance_service.transactions.models import Transaction
-from poupeai_finance_service.categories.models import Category
-from poupeai_finance_service.bank_accounts.models import BankAccount
-from poupeai_finance_service.credit_cards.models import CreditCard
 
 class TransactionBaseSerializer(serializers.ModelSerializer):
     """
@@ -153,8 +145,8 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
         total_installments = data.get('total_installments', getattr(instance, 'total_installments', None))
         
         if source_type == 'CREDIT_CARD':
-            if category and category.type != 'EXPENSE':
-                raise serializers.ValidationError({"category": _("Credit card transactions must be of 'EXPENSE' category type.")})
+            if category and category.type != 'expense':
+                raise serializers.ValidationError({"category": _("Credit card transactions must be of 'expense' category type.")})
 
         if source_type == 'CREDIT_CARD' and is_installment:
             if total_installments is None or total_installments < 1:
