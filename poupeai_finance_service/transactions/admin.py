@@ -1,42 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import Invoice, Transaction
-
-@admin.register(Invoice)
-class InvoiceAdmin(admin.ModelAdmin):
-    """
-    Admin configuration for the Invoice model.
-    """
-    list_display = (
-        'credit_card',
-        'month', 'year', 
-        'due_date', 
-        'total_amount', 
-        'amount_paid', 
-        'paid',
-    )
-    list_filter = ('paid', 'credit_card', 'year',)
-    search_fields = ('credit_card__name',)
-    raw_id_fields = ('credit_card',)
-    readonly_fields = ('total_amount',)
-    fieldsets = (
-        (None, {
-            'fields': (
-                'credit_card',
-                ('month', 'year'),
-                'due_date',
-                'amount_paid',
-                'paid',
-            )
-        }),
-        (_('Calculated Fields'), {
-            'fields': (
-                'total_amount',
-            ),
-            'classes': ('collapse',),
-        }),
-    )
+from .models import Transaction
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
