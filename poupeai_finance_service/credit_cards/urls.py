@@ -5,10 +5,11 @@ from poupeai_finance_service.credit_cards.api.viewsets import CreditCardViewSet,
 
 router = DefaultRouter()
 router.register(r'', CreditCardViewSet, basename='credit_cards')
-router.register(r'invoices', InvoiceViewSet, basename='invoices')
 
 app_name = 'credit_cards'
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('<int:id>/invoices/', InvoiceViewSet.as_view({'get': 'list'}), name='invoices_list'),
+    path('<int:id>/invoices/<int:pk>/', InvoiceViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}), name='invoices_detail'),
 ]

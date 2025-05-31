@@ -1,9 +1,9 @@
-from requests import Response
-
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from poupeai_finance_service.core.permissions import IsOwnerProfile
@@ -52,7 +52,17 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
         Ensures a user can only see invoices related to their credit cards.
         """
         user_profile = self.request.user.profile
-        return self.queryset.filter(credit_card__profile=user_profile)
+        credit_card_id = self.kwargs.get('id')
+
+        if not credit_card_id:
+            raise NotFound("Credit card ID not provided in the URL.")
+
+        try:
+            credit_card = CreditCard.objects.get(pk=credit_card_id, profile=user_profile)
+        except CreditCard.DoesNotExist:
+            raise NotFound("Credit card not found or you do not have permission to access it.")
+
+        return self.queryset.filter(credit_card=credit_card)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
