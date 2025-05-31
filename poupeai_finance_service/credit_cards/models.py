@@ -1,10 +1,12 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
-from poupeai_finance_service.credit_cards.validators import validate_day, validate_closing_due_days_not_equal
+from .managers import InvoiceManager
+from .validators import validate_day, validate_closing_due_days_not_equal
 
 class CreditCard(TimeStampedModel):
     class BrandChoices(models.TextChoices):
@@ -72,3 +74,77 @@ class CreditCard(TimeStampedModel):
             validate_closing_due_days_not_equal(self.closing_day, self.due_day)
         except ValidationError as e:
             raise ValidationError({'due_day': e.message})
+
+class Invoice(TimeStampedModel):
+    """
+    Model representing a credit card invoice.
+    """
+    credit_card = models.ForeignKey(
+        CreditCard,
+        on_delete=models.CASCADE,
+        related_name='invoices',
+        verbose_name=_('Credit Card')
+    )
+    month = models.SmallIntegerField(_('Month'), validators=[MinValueValidator(1), MinValueValidator(12)])
+    year = models.SmallIntegerField(_('Year'), validators=[MinValueValidator(2000)])
+    amount_paid = models.DecimalField(
+        _('Amount Paid'),
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)]
+    )
+    due_date = models.DateField(_('Due Date'))
+    paid = models.BooleanField(_('Paid'), default=False)
+
+    objects = InvoiceManager()
+
+    class Meta:
+        verbose_name = _('Invoice')
+        verbose_name_plural = _('Invoices')
+        unique_together = ('credit_card', 'month', 'year')
+        ordering = ['-year', '-month']
+
+    def __str__(self):
+        return f"{self.credit_card.name} - {self.month}/{self.year}"
+
+    @property
+    def total_amount(self):
+        """Calculates the total amount of the invoice based on associated credit card transactions."""
+        return self.transactions.aggregate(total=models.Sum('amount'))['total'] or 0
+    
+    def delete(self, *args, **kwargs):
+        from poupeai_finance_service.transactions.models import Transaction
+        
+        with transaction.atomic():
+            related_transactions = self.transactions.all()
+            
+            installment_groups = {}
+            for trans in related_transactions:
+                if trans.is_installment and trans.purchase_group_uuid:
+                    group_uuid = trans.purchase_group_uuid
+                    if group_uuid not in installment_groups:
+                        installment_groups[group_uuid] = []
+                    installment_groups[group_uuid].append(trans)
+            
+            non_installment_trans = related_transactions.filter(is_installment=False)
+            non_installment_trans.delete()
+            
+            for group_uuid, transactions in installment_groups.items():
+                transactions_ids = [t.id for t in transactions]
+                Transaction.objects.filter(id__in=transactions_ids).delete()
+                
+                remaining_installments = Transaction.objects.filter(
+                    purchase_group_uuid=group_uuid
+                ).order_by('installment_number')
+                
+                if remaining_installments.exists():
+                    for idx, trans in enumerate(remaining_installments, start=1):
+                        trans.installment_number = idx
+                        original_desc = trans.original_purchase_description or trans.description.split(' (')[0]
+                        trans.description = f"{original_desc} ({idx}/{remaining_installments.count()})"
+                        trans.save()
+                    
+                    remaining_installments.update(total_installments=remaining_installments.count())
+            
+            super().delete(*args, **kwargs)
