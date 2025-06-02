@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/v1/categories/', include('categories.urls', namespace='categories')),
     path('api/v1/bank-accounts/', include('bank_accounts.urls', namespace='bank-accounts')),
     path("api/v1/credit-cards/", include("credit_cards.urls", namespace="credit_cards")),
+    path("api/v1/transactions/", include('transactions.urls', namespace='transactions')),
     path("api/v1/goals/", include("goals.urls", namespace="goals")),
 ]
 
