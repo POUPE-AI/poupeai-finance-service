@@ -4,6 +4,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
+from drf_spectacular.utils import extend_schema_view, extend_schema
+from drf_spectacular.openapi import OpenApiParameter
 from poupeai_finance_service.goals.models import Goal
 from poupeai_finance_service.goals.api.serializers import (
     GoalCreateSerializer, 
@@ -16,6 +18,38 @@ from poupeai_finance_service.users.api.permissions import IsProfileActive
 from poupeai_finance_service.users.querysets import get_profile_by_user
 from django.utils import timezone
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Goals'],
+        summary='List all goals',
+        description='Retrieve all goals for the authenticated user'
+    ),
+    create=extend_schema(
+        tags=['Goals'],
+        summary='Create a new goal',
+        description='Create a new financial goal for the authenticated user'
+    ),
+    retrieve=extend_schema(
+        tags=['Goals'],
+        summary='Get goal details',
+        description='Retrieve detailed information about a specific goal'
+    ),
+    update=extend_schema(
+        tags=['Goals'],
+        summary='Update goal',
+        description='Update all fields of a specific goal'
+    ),
+    partial_update=extend_schema(
+        tags=['Goals'],
+        summary='Partially update goal',
+        description='Update specific fields of a goal'
+    ),
+    destroy=extend_schema(
+        tags=['Goals'],
+        summary='Delete goal',
+        description='Delete a specific goal'
+    ),
+)
 class GoalViewSet(viewsets.ModelViewSet):
     queryset = Goal.objects.all()    
     serializer_class = GoalListSerializer
@@ -43,6 +77,22 @@ class GoalViewSet(viewsets.ModelViewSet):
             context['profile'] = get_profile_by_user(self.request.user)
         return context
     
+@extend_schema_view(
+    create=extend_schema(
+        tags=['Goals Deposits'],
+        summary='Add deposit to goal',
+        description='Add a deposit to a specific goal',
+        parameters=[
+            OpenApiParameter(
+                name='id',
+                description='Goal ID',
+                required=True,
+                type=int,
+                location=OpenApiParameter.PATH
+            ),
+        ]
+    ),
+)
 class GoalDepositViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = GoalDepositSerializer
     permission_classes = [IsProfileActive, IsAuthenticated]

@@ -4,6 +4,40 @@ from poupeai_finance_service.budgets.models import Budget
 from poupeai_finance_service.users.api.permissions import IsProfileActive
 from poupeai_finance_service.users.querysets import get_profile_by_user
 from rest_framework.permissions import IsAuthenticated
+from drf_spectacular.utils import extend_schema_view, extend_schema
+
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Budgets'],
+        summary='List all budgets',
+        description='Retrieve all budgets for the authenticated user'
+    ),
+    create=extend_schema(
+        tags=['Budgets'],
+        summary='Create a new budget',
+        description='Create a new budget for the authenticated user'
+    ),
+    retrieve=extend_schema(
+        tags=['Budgets'],
+        summary='Get budget details',
+        description='Retrieve detailed information about a specific budget'
+    ),
+    update=extend_schema(
+        tags=['Budgets'],
+        summary='Update budget',
+        description='Update all fields of a specific budget'
+    ),
+    partial_update=extend_schema(
+        tags=['Budgets'],
+        summary='Partially update budget',
+        description='Update specific fields of a budget'
+    ),
+    destroy=extend_schema(
+        tags=['Budgets'],
+        summary='Delete budget',
+        description='Delete a specific budget'
+    ),
+)
 
 class BudgetViewSet(viewsets.ModelViewSet):
     queryset = Budget.objects.none()
