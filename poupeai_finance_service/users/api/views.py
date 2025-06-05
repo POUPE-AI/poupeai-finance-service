@@ -1,9 +1,24 @@
 from rest_framework import generics, permissions, status, views
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from poupeai_finance_service.users.models import CustomUser, Profile
 from poupeai_finance_service.users.api.serializers import RegisterUserSerializer, UserProfileSerializer
 from poupeai_finance_service.users.api.permissions import IsProfileActive
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(
+    tags=['Authentication'],
+    summary='Register new user',
+    description='Create a new user account in the system',
+    responses={
+        201: {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "example": "User registered successfully. Please login to get your token."}
+            }
+        }
+    }
+)
 class RegisterUserAPIView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterUserSerializer
@@ -20,7 +35,59 @@ class RegisterUserAPIView(generics.CreateAPIView):
         return Response({
             "message": "User registered successfully. Please login to get your token."
         }, status=status.HTTP_201_CREATED, headers=headers)
+    
+@extend_schema(
+    tags=['Authentication'],
+    summary='User login',
+    description='Authenticate user and obtain access and refresh tokens',
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "access": {"type": "string", "description": "JWT access token"},
+                "refresh": {"type": "string", "description": "JWT refresh token"}
+            }
+        },
+        401: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "example": "No active account found with the given credentials"}
+            }
+        }
+    }
+)
+class CustomTokenObtainPairView(TokenObtainPairView):
+    pass
 
+@extend_schema(
+    tags=['Authentication'],
+    summary='Refresh access token',
+    description='Obtain a new access token using a valid refresh token',
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "access": {"type": "string", "description": "New JWT access token"}
+            }
+        },
+        401: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "example": "Token is invalid or expired"},
+                "code": {"type": "string", "example": "token_not_valid"}
+            }
+        }
+    }
+)
+class CustomTokenRefreshView(TokenRefreshView):
+    pass
+
+@extend_schema(
+    tags=['User Management'],
+    summary='Get/Update user profile',
+    description='Retrieve or update the authenticated user profile information',
+    methods=['GET', 'PUT', 'PATCH']
+)    
 class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated, IsProfileActive]
@@ -44,6 +111,25 @@ class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
     
+@extend_schema(
+    tags=['User Management'],
+    summary='Deactivate user account',
+    description='Deactivate the authenticated user account and schedule for deletion',
+    responses={
+        200: {
+            "type": "object", 
+            "properties": {
+                "detail": {"type": "string", "example": "Profile successfully deactivated. Permanent deletion is scheduled."}
+            }
+        },
+        400: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "example": "User profile is already deactivated or has scheduled deletion."}
+            }
+        }
+    }
+)    
 class UserDeactivateAPIView(generics.DestroyAPIView):
     queryset = Profile.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -67,6 +153,26 @@ class UserDeactivateAPIView(generics.DestroyAPIView):
             status=status.HTTP_200_OK 
         )
 
+@extend_schema(
+    tags=['User Management'],
+    summary='Reactivate user account',
+    description='Reactivate a previously deactivated user account and cancel scheduled deletion',
+    methods=['POST'],
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "example": "Profile successfully reactivated. Scheduled deletion has been canceled."}
+            }
+        },
+        400: {
+            "type": "object", 
+            "properties": {
+                "detail": {"type": "string", "example": "User profile is already active."}
+            }
+        }
+    }
+)
 class UserReactivateAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
