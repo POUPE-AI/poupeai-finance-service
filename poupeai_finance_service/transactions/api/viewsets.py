@@ -8,6 +8,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from poupeai_finance_service.core.permissions import IsOwnerProfile
 from poupeai_finance_service.transactions.api.serializers import (
@@ -18,11 +19,41 @@ from poupeai_finance_service.transactions.api.serializers import (
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.transactions.services import TransactionService
 
+
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Transactions'],
+        summary='List all transactions',
+        description='Retrieve all transactions for the authenticated user'
+    ),
+    create=extend_schema(
+        tags=['Transactions'],
+        summary='Create a new transaction',
+        description='Create a new transaction for the authenticated user'
+    ),
+    retrieve=extend_schema(
+        tags=['Transactions'],
+        summary='Get a transaction',
+        description='Retrieve a specific transaction for the authenticated user'
+    ),
+    update=extend_schema(
+        tags=['Transactions'],
+        summary='Update a transaction',
+        description='Update a specific transaction for the authenticated user'
+    ),
+    partial_update=extend_schema(
+        tags=['Transactions'],
+        summary='Partial update a transaction',
+        description='Update a specific transaction for the authenticated user'
+    ),
+    destroy=extend_schema(
+        tags=['Transactions'],
+        summary='Delete a transaction',
+        description='Delete a specific transaction for the authenticated user'
+    ),
+)
+
 class TransactionViewSet(viewsets.ModelViewSet):
-    """
-    Viewset for managing financial transactions.
-    Provides create, retrieve, update, partial_update, list, and destroy actions.
-    """
     queryset = Transaction.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerProfile]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
@@ -38,10 +69,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return TransactionDetailSerializer
 
     def get_queryset(self):
-        """
-        Ensures a user can only see their own transactions.
-        Applies filtering based on query parameters.
-        """
         user_profile = self.request.user.profile
         queryset = self.queryset.filter(profile=user_profile)
 
