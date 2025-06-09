@@ -339,11 +339,55 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "poupeai-finance-service API",
-    "DESCRIPTION": "Documentation of API endpoints of poupeai-finance-service",
-    "VERSION": "1.0.0",
+    "TITLE": "Finance Service API",
+    "DESCRIPTION": "Finance Service API documentation",
+    "VERSION": "0.0.1",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
+    "TAGS": [
+        {
+            "name": "Authentication",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "User Management",
+            "description": "User profile and account management endpoints"
+        },
+        {
+            "name": "Categories",
+            "description": "Categories management endpoints"
+        },
+        {
+            "name": "Bank Accounts",
+            "description": "Bank account management endpoints"
+        },
+        {
+            "name": "Credit Cards",
+            "description": "Credit card management endpoints"
+        },
+        {
+            "name": "Invoices",
+            "description": "Credit card invoices management endpoints"
+        },
+        {
+            "name": "Goals",
+            "description": "Goals management endpoints"
+        },
+        {
+            "name": "Goals Deposits",
+            "description": "Goals deposits endpoint"
+        },
+        {
+            "name": "Transactions",
+            "description": "Financial transaction management endpoints"
+        },
+        {
+            "name": "Budgets",
+            "description": "Budget management endpoints"
+        },
+    ],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATION_PARAMETERS": False,
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
