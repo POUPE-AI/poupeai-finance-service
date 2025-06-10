@@ -24,39 +24,56 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['profile', 'type', 'status', 'purchase_group_uuid', 'invoice', 'created_at', 'updated_at']
 
-    def validate_profile_related_objects(self, profile, category, bank_account, credit_card):
-        if category and category.profile != profile:
-            raise serializers.ValidationError({"category": _("Category does not belong to your profile.")})
-        if bank_account and bank_account.profile != profile:
-            raise serializers.ValidationError({"bank_account": _("Bank account does not belong to your profile.")})
-        if credit_card and credit_card.profile != profile:
-            raise serializers.ValidationError({"credit_card": _("Credit card does not belong to your profile.")})
-
+    def validate_category(self, category):
+        if not category:
+            return category
+            
+        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        if self.instance:
+            profile = profile or self.instance.profile
+            
+        if profile and category.profile != profile:
+            raise serializers.ValidationError(_("Category does not belong to your profile."))
+        return category
+    
+    def validate_bank_account(self, bank_account):
+        if not bank_account:
+            return bank_account
+            
+        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        if self.instance:
+            profile = profile or self.instance.profile
+            
+        if profile and bank_account.profile != profile:
+            raise serializers.ValidationError(_("Bank account does not belong to your profile."))
+        return bank_account
+    
+    def validate_credit_card(self, credit_card):
+        if not credit_card:
+            return credit_card
+            
+        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        if self.instance:
+            profile = profile or self.instance.profile
+            
+        if profile and credit_card.profile != profile:
+            raise serializers.ValidationError(_("Credit card does not belong to your profile."))
+        return credit_card
 
     def validate(self, data):
         if not self.instance and 'profile' not in data:
             data['profile'] = self.context['request'].user.profile
-        
-        profile = data.get('profile') or (self.instance and self.instance.profile)
-
-        self.validate_profile_related_objects(
-            profile,
-            data.get('category'),
-            data.get('bank_account'),
-            data.get('credit_card')
-        )
 
         source_type = data.get('source_type')
         bank_account = data.get('bank_account')
         credit_card = data.get('credit_card')
         is_installment = data.get('is_installment', False)
 
-        print(f"DEBUG: source_type recebido no serializer.validate: {source_type} (type: {type(source_type)})")
+        #print(f"DEBUG: source_type recebido no serializer.validate: {source_type} (type: {type(source_type)})")
 
         if source_type == 'BANK_ACCOUNT':
             if credit_card:
                 raise serializers.ValidationError({"credit_card": _("Credit card cannot be set for bank account transactions.")})
-                raise serializers.ValidationError(_("Installment fields cannot be set for bank account transactions."))
 
         elif source_type == 'CREDIT_CARD':
             if bank_account:

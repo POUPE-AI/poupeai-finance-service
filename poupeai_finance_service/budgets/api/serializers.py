@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils.translation import gettext_lazy as _
 from poupeai_finance_service.budgets.models import Budget
 
 class CreateBudgetSerializer(serializers.ModelSerializer):
@@ -20,6 +21,12 @@ class CreateBudgetSerializer(serializers.ModelSerializer):
         if attrs['amount'] <= 0:
             raise serializers.ValidationError("O valor do orçamento deve ser maior que zero.")
         return attrs
+    
+    def validate_category(self, category):
+        profile = self.context.get('profile')
+        if category and profile and category.profile != profile:
+            raise serializers.ValidationError(_("Category does not belong to your profile."))
+        return category
 
 class BudgetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -35,3 +42,9 @@ class BudgetSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['id', 'profile', 'created_at', 'updated_at', 'actual_amount']
+    
+    def validate_category(self, category):
+        profile = self.context.get('profile') or (self.instance and self.instance.profile)
+        if category and profile and category.profile != profile:
+            raise serializers.ValidationError(_("Category does not belong to your profile."))
+        return category

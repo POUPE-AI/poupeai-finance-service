@@ -6,4 +6,4 @@ class UsersConfig(AppConfig):
     name = 'poupeai_finance_service.users'
 
     def ready(self):
-        import users.signals
+        import poupeai_finance_service.users.signals
