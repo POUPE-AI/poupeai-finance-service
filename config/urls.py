@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/transactions/", include('transactions.urls', namespace='transactions')),
     path("api/v1/goals/", include("goals.urls", namespace="goals")),
     path("api/v1/budgets/", include("budgets.urls", namespace="budgets")),
+    path("api/v1/dashboard/", include("dashboard.urls", namespace="dashboard")),
 ]
 
 # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

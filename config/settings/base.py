@@ -7,8 +7,8 @@ from pathlib import Path
 
 import environ
 
-#from dotenv import load_dotenv
-#load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # poupeai_finance_service/
@@ -89,6 +89,7 @@ LOCAL_APPS = [
     "poupeai_finance_service.goals",
     "poupeai_finance_service.transactions",
     "poupeai_finance_service.users",
+    "poupeai_finance_service.dashboard",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
