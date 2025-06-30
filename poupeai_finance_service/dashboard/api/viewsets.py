@@ -7,13 +7,19 @@ from django.utils import timezone
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
-from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.bank_accounts.models import BankAccount
 
 from poupeai_finance_service.users.querysets import get_profile_by_user
 
-from django.db import models
+from poupeai_finance_service.dashboard.services import (
+    get_transactions_by_period,
+    get_chart_data,
+    get_initial_balance_until,
+    get_category_summary,
+    get_invoices_summary
+)
 
+from poupeai_finance_service.dashboard.tools import get_difference_in_percent
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -47,51 +53,39 @@ class DashboardView(APIView):
         else:
             end = start.replace(month=start.month+1)
         
+        # Get the profile of the authenticated user
         profile = get_profile_by_user(self.request.user)
         
-        incomes = Transaction.objects.filter(
-            profile=profile,
-            type='income',
-            transaction_date__gte=start,
-            transaction_date__lt=end
-            )
-        
-        expenses = Transaction.objects.filter(
-            profile=profile,
-            type='expense',
-            transaction_date__gte=start,
-            transaction_date__lt=end
-        )
-        
-        total_incomes = incomes.aggregate(total=models.Sum('amount'))['total'] or 0
-        total_expenses = expenses.aggregate(total=models.Sum('amount'))['total'] or 0
+        # Get transactions for the specified period
+        incomes, expenses = get_transactions_by_period(profile, start, end)
 
+        # Get all bank accounts for the profile
         bank_accounts = BankAccount.objects.filter(profile=profile)
-        balance = sum([account.current_balance for account in bank_accounts])
         
+        # Calculate initial balance from bank accounts
+        initial_balance = get_initial_balance_until(profile, bank_accounts, start)
+        balance_chart_data, current_balance = get_chart_data(incomes, expenses, start, end, initial_balance)
+
+        # Calculate the difference in percentage
+        balance_difference = get_difference_in_percent(initial_balance, current_balance)
+        
+        # Get summary of incomes and expenses by category
+        incomes_summary = get_category_summary(profile, bank_accounts, 'income', start, end)
+        expenses_summary = get_category_summary(profile, bank_accounts, 'expense', start, end)
+        invoices_summary = get_invoices_summary(profile, start.year, start.month)
+
         return Response({
             "message": "Dashboard data retrieved successfully.",
             "start_date": start.isoformat() if period else None,
             "end_date": ((start.replace(day=1) + timezone.timedelta(days=31)).replace(day=1) - timezone.timedelta(days=1)).isoformat() if period else None,
-            "overview": {
-                "total_incomes": total_incomes,
-                "total_expenses": total_expenses,
-                "balance": balance,
+            "balance": {
+                "current_total": current_balance,
+                "difference": balance_difference,
+                "chart_data": balance_chart_data
             },
-            "economy": {
-                "total_incomes": 0,
-                "total_expenses": 0,
-                "economy_value": 0,
-                "economy_percentage": 0,
-            },
-            "latest_transactions": [],
-            "expenses_by_category": [],
-            "incomes_by_category": [],
-            "expenses_evolution": [],
-            "incomes_evolution": [],
-            "expenses_x_incomes": [],
-            "rankings": {
-                "top_expenses": [],
-                "top_incomes": []
-            }
+            "incomes": incomes_summary,
+            "expenses": expenses_summary,
+            "invoices": invoices_summary,
+            "spending_by_category": {},
+            "estimated_saving": 0,
         }, status=200)
