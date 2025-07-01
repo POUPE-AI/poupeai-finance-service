@@ -58,8 +58,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsOwnerProfile]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['description', 'original_purchase_description', 'original_statement_description']
-    ordering_fields = ['transaction_date', 'amount', 'created_at']
-    ordering = ['-transaction_date']
+    ordering_fields = ['issue_date', 'amount', 'created_at']
+    ordering = ['-issue_date']
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -76,13 +76,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if category_id:
             queryset = queryset.filter(category_id=category_id)
 
-        transaction_date_start = self.request.query_params.get('transaction_date_start')
-        if transaction_date_start:
-            queryset = queryset.filter(transaction_date__gte=transaction_date_start)
+        issue_date_start = self.request.query_params.get('issue_date_start')
+        if issue_date_start:
+            queryset = queryset.filter(issue_date__gte=issue_date_start)
 
-        transaction_date_end = self.request.query_params.get('transaction_date_end')
-        if transaction_date_end:
-            queryset = queryset.filter(transaction_date__lte=transaction_date_end)
+        issue_date_end = self.request.query_params.get('issue_date_end')
+        if issue_date_end:
+            queryset = queryset.filter(issue_date__lte=issue_date_end)
 
         source_type = self.request.query_params.get('source_type')
         if source_type:

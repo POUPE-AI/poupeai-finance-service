@@ -13,7 +13,7 @@ class TransactionAdmin(admin.ModelAdmin):
         'profile',
         'category',
         'amount',
-        'transaction_date',
+        'issue_date',
         'type',
         'source_type',
         'bank_account',
@@ -29,7 +29,7 @@ class TransactionAdmin(admin.ModelAdmin):
         'is_installment',
         'category',
         'profile',
-        'transaction_date',
+        'issue_date',
     )
     search_fields = (
         'description',
@@ -58,7 +58,7 @@ class TransactionAdmin(admin.ModelAdmin):
                 'category',
                 'description',
                 'amount',
-                'transaction_date',
+                'issue_date',
                 'source_type',
             )
         }),

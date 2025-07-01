@@ -24,8 +24,8 @@ class Budget(models.Model):
         total = Transaction.objects.filter(
             category=self.category,
             profile=self.profile,
-            transaction_date__year=date.year,
-            transaction_date__month=date.month
+            issue_date__year=date.year,
+            issue_date__month=date.month
         ).aggregate(total=models.Sum('amount'))['total'] or 0.0
 
         return total
