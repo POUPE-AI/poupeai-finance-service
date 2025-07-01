@@ -104,7 +104,7 @@ class InvoicePaymentSerializer(serializers.Serializer):
         self.context['bank_account'] = bank_account
         return value
     
-    def validate_bank_account_balance(self):
+    def _validate_bank_account_balance(self):
         bank_account = self.context['bank_account']
         invoice = self.context['invoice']
         amount = invoice.total_amount
@@ -116,5 +116,5 @@ class InvoicePaymentSerializer(serializers.Serializer):
         return bank_account
 
     def validate(self, data):
-        self.validate_bank_account_balance()
+        self._validate_bank_account_balance()
         return data
