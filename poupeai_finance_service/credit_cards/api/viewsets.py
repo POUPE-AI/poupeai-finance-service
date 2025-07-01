@@ -1,16 +1,19 @@
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from drf_spectacular.utils import extend_schema_view, extend_schema
+from django.db import transaction
 
 from poupeai_finance_service.core.permissions import IsOwnerProfile
 from poupeai_finance_service.credit_cards.api.serializers import (
     CreditCardSerializer,
     InvoiceSerializer,
+    InvoicePaymentSerializer,
 )
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.users.api.permissions import IsProfileActive
@@ -83,6 +86,20 @@ class CreditCardViewSet(ModelViewSet):
         summary='Delete an invoice',
         description='Delete a specific invoice for the authenticated user'
     ),
+    payment=extend_schema(
+        tags=['Invoices'],
+        summary='Pay an invoice',
+        description='Registers the payment for a specific invoice.',
+        request=InvoicePaymentSerializer,
+        responses={204: None}
+    ),
+    reopen=extend_schema(
+        tags=['Invoices'],
+        summary='Reopen a paid invoice',
+        description='Reverts a paid invoice back to the open state.',
+        request=None,
+        responses={204: None}
+    ),
 )
 class InvoiceViewSet(mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
@@ -91,7 +108,7 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
     serializer_class = InvoiceSerializer
     permission_classes = [IsAuthenticated, IsOwnerProfile]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    ordering_fields = ['due_date', 'month', 'year', 'amount_paid']
+    ordering_fields = ['due_date', 'month', 'year']
     ordering = ['-year', '-month']
 
     def get_queryset(self):
@@ -107,6 +124,52 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
             raise NotFound("Credit card not found or you do not have permission to access it.")
 
         return self.queryset.filter(credit_card=credit_card)
+
+    @action(detail=True, methods=['post'], url_path='payment')
+    def payment(self, request, id=None, pk=None):
+        invoice = self.get_object()
+        if invoice.is_paid:
+            return Response({'detail': _('Invoice already paid.')}, status=status.HTTP_409_CONFLICT)
+
+        context = {
+            'profile': request.user.profile,
+            'invoice': invoice
+        }
+        serializer = InvoicePaymentSerializer(data=request.data, context=context)
+        serializer.is_valid(raise_exception=True)
+
+        bank_account = serializer.context['bank_account']
+        payment_date = serializer.validated_data['payment_date']
+
+        with transaction.atomic():
+            invoice.bank_account = bank_account
+            invoice.payment_date = payment_date
+            invoice.save()
+
+            invoice.transactions.update(
+                bank_account=bank_account,
+                payment_date=payment_date
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='reopen')
+    def reopen(self, request, id=None, pk=None):
+        invoice = self.get_object()
+        if not invoice.is_paid:
+            return Response({'detail': _('Invoice is not paid.')}, status=status.HTTP_409_CONFLICT)
+
+        with transaction.atomic():
+            invoice.bank_account = None
+            invoice.payment_date = None
+            invoice.save()
+
+            invoice.transactions.update(
+                bank_account=None,
+                payment_date=None
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
