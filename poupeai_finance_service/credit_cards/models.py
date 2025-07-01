@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.bank_accounts.models import BankAccount
 from .managers import InvoiceManager
 from .validators import validate_day, validate_closing_due_days_not_equal
 
@@ -85,17 +86,18 @@ class Invoice(TimeStampedModel):
         related_name='invoices',
         verbose_name=_('Credit Card')
     )
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        related_name="paid_invoices",
+        null=True,
+        blank=True,
+        verbose_name=_('Bank Account')
+    )
     month = models.SmallIntegerField(_('Month'), validators=[MinValueValidator(1), MinValueValidator(12)])
     year = models.SmallIntegerField(_('Year'), validators=[MinValueValidator(2000)])
-    amount_paid = models.DecimalField(
-        _('Amount Paid'),
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0)]
-    )
     due_date = models.DateField(_('Due Date'))
-    paid = models.BooleanField(_('Paid'), default=False)
+    payment_date = models.DateField(_('Payment Date'), null=True, blank=True)
 
     objects = InvoiceManager()
 
@@ -107,6 +109,10 @@ class Invoice(TimeStampedModel):
 
     def __str__(self):
         return f"{self.credit_card.name} - {self.month}/{self.year}"
+
+    @property
+    def is_paid(self):
+        return self.payment_date is not None
 
     @property
     def total_amount(self):
