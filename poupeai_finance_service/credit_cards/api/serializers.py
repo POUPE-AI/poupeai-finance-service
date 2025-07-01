@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
+from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.credit_cards.validators import validate_closing_due_days_not_equal
 from poupeai_finance_service.users.models import Profile
@@ -76,11 +77,44 @@ class InvoiceSerializer(serializers.ModelSerializer):
     """
     Serializer for the Invoice model.
     """
+    is_paid = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Invoice
         fields = [
             'id', 'credit_card', 'month', 'year',
-            'amount_paid', 'due_date', 'paid',
+            'due_date', 'payment_date', 'bank_account', 'is_paid',
             'total_amount', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['total_amount', 'created_at', 'updated_at']
+        read_only_fields = [
+            'total_amount', 'created_at', 'updated_at', 'is_paid',
+            'payment_date', 'bank_account'
+        ]
+
+class InvoicePaymentSerializer(serializers.Serializer):
+    bank_account_id = serializers.IntegerField(write_only=True)
+    payment_date = serializers.DateField(write_only=True)
+
+    def validate_bank_account_id(self, value):
+        profile = self.context['profile']
+        try:
+            bank_account = BankAccount.objects.get(id=value, profile=profile)
+        except BankAccount.DoesNotExist:
+            raise DRFValidationError(_("Bank account does not belong to your profile or does not exist."))
+        self.context['bank_account'] = bank_account
+        return value
+    
+    def validate_bank_account_balance(self):
+        bank_account = self.context['bank_account']
+        invoice = self.context['invoice']
+        amount = invoice.total_amount
+        
+        if bank_account.current_balance < amount:
+            raise DRFValidationError({
+                'bank_account_id': _("Bank account balance is not enough to pay the invoice.")
+            })
+        return bank_account
+
+    def validate(self, data):
+        self.validate_bank_account_balance()
+        return data
