@@ -33,21 +33,26 @@ class InvoiceAdmin(admin.ModelAdmin):
         'month', 'year', 
         'due_date', 
         'total_amount', 
-        'amount_paid', 
-        'paid',
+        'payment_date', 
+        'is_paid',
     )
-    list_filter = ('paid', 'credit_card', 'year',)
+    list_filter = ('credit_card', 'year',)
     search_fields = ('credit_card__name',)
-    raw_id_fields = ('credit_card',)
-    readonly_fields = ('total_amount',)
+    raw_id_fields = ('credit_card', 'bank_account',)
+    readonly_fields = ('total_amount', 'is_paid',)
     fieldsets = (
         (None, {
             'fields': (
                 'credit_card',
                 ('month', 'year'),
                 'due_date',
-                'amount_paid',
-                'paid',
+                'bank_account',
+                'payment_date',
+            )
+        }),
+        (_('Status'), {
+            'fields': (
+                'is_paid',
             )
         }),
         (_('Calculated Fields'), {

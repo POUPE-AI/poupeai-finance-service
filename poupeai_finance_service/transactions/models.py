@@ -41,7 +41,7 @@ class Transaction(TimeStampedModel):
         decimal_places=2,
         validators=[MinValueValidator(0.01, message=_("Amount must be positive."))]
     )
-    transaction_date = models.DateField(_('Transaction Date'))
+    issue_date = models.DateField(_('Issue Date'))
     type = models.CharField(
         _('Type'),
         max_length=10,
@@ -86,6 +86,7 @@ class Transaction(TimeStampedModel):
         null=True,
         verbose_name=_('Invoice')
     )
+    payment_date = models.DateField(_('Payment Date'), null=True, blank=True)
 
     original_transaction_id = models.CharField(_('Original Transaction ID'), max_length=100, blank=True, null=True)
     original_statement_description = models.TextField(_('Original Statement Description'), blank=True, null=True)
@@ -96,10 +97,10 @@ class Transaction(TimeStampedModel):
     class Meta:
         verbose_name = _('Transaction')
         verbose_name_plural = _('Transactions')
-        ordering = ['-transaction_date', '-created_at']
+        ordering = ['-issue_date', '-created_at']
         
     def __str__(self):
-        return f"{self.description} - {self.amount} on {self.transaction_date}"
+        return f"{self.description} - {self.amount} on {self.issue_date}"
 
     def clean(self):
         super().clean()
@@ -127,14 +128,20 @@ class Transaction(TimeStampedModel):
                 if self.total_installments is not None or self.installment_number is not None:
                     raise ValidationError(_("Installment specific fields should be null if not an installment."))
                 
-                if not self.invoice and self.transaction_date:
+                if not self.invoice and self.issue_date:
                     self.invoice = Invoice.objects.get_or_create_invoice(
                         credit_card=self.credit_card,
-                        transaction_date=self.transaction_date
+                        issue_date=self.issue_date
                     )
 
         if self.category and self.type != self.category.type:
             self.type = self.category.type
+
+    def save(self, *args, **kwargs):
+        if self.source_type == 'CREDIT_CARD' and self.invoice and self.invoice.is_paid:
+            self.bank_account = self.invoice.bank_account
+            self.payment_date = self.invoice.payment_date
+        super().save(*args, **kwargs)
 
     @property
     def status(self):
@@ -146,9 +153,9 @@ class Transaction(TimeStampedModel):
         if self.source_type == 'BANK_ACCOUNT':
             return 'PAID'
         elif self.source_type == 'CREDIT_CARD' and self.invoice:
-            if self.invoice.paid:
+            if self.invoice.is_paid:
                 return 'PAID'
-            elif self.invoice.due_date < timezone.now().date() and not self.invoice.paid:
+            elif self.invoice.due_date < timezone.now().date() and not self.invoice.is_paid:
                 return 'OVERDUE'
             else:
                 return 'PENDING'
