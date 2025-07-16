@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from poupeai_finance_service.core.models import TimeStampedModel
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 from poupeai_finance_service.bank_accounts.models import BankAccount
 from .managers import InvoiceManager
 from .validators import validate_day, validate_closing_due_days_not_equal

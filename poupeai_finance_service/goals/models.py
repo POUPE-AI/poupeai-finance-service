@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from poupeai_finance_service.core.models import TimeStampedModel
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 
 class Goal(TimeStampedModel):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='goals')

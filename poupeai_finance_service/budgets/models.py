@@ -1,6 +1,6 @@
 from django.db import models
 from poupeai_finance_service.categories.models import Category
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 from poupeai_finance_service.transactions.models import Transaction
 from django.utils import timezone
 
