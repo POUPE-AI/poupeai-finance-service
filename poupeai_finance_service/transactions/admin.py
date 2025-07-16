@@ -33,7 +33,7 @@ class TransactionAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'description',
-        'profile__user__email',
+        'profile__email',
         'category__name',
         'bank_account__name',
         'credit_card__name',

@@ -7,7 +7,7 @@ from .models import CreditCard, Invoice
 class CreditCardAdmin(admin.ModelAdmin):
     list_display = ('profile', 'name', 'brand', 'credit_limit', 'closing_day', 'due_day', 'created_at', 'updated_at')
     list_filter = ('brand', 'profile')
-    search_fields = ('name', 'profile__user__username')
+    search_fields = ('name', 'profile__email', 'profile__first_name', 'profile__last_name')
     readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
