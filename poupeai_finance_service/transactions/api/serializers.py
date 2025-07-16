@@ -28,7 +28,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not category:
             return category
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -40,7 +40,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not bank_account:
             return bank_account
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -52,7 +52,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not credit_card:
             return credit_card
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -62,7 +62,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not self.instance and 'profile' not in data:
-            data['profile'] = self.context['request'].user.profile
+            data['profile'] = self.context['request'].user
 
         source_type = data.get('source_type')
         bank_account = data.get('bank_account')
