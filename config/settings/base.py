@@ -88,7 +88,7 @@ LOCAL_APPS = [
     "poupeai_finance_service.credit_cards",
     "poupeai_finance_service.goals",
     "poupeai_finance_service.transactions",
-    "poupeai_finance_service.users",
+    "poupeai_finance_service.profiles",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -105,9 +105,9 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
-AUTH_USER_MODEL = "users.CustomUser"
+# AUTH_USER_MODEL = "users.CustomUser"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
-# LOGIN_REDIRECT_URL = "users:redirect"
+# LOGIN_REDIRECT_URL = "profiles:redirect"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-url
 # LOGIN_URL = "account_login"
 
@@ -311,18 +311,18 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 # ACCOUNT_LOGIN_METHODS = {"username"}
 # ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-# ACCOUNT_ADAPTER = "poupeai_finance_service.users.adapters.AccountAdapter"
-# ACCOUNT_FORMS = {"signup": "poupeai_finance_service.users.forms.UserSignupForm"}
-# SOCIALACCOUNT_ADAPTER = "poupeai_finance_service.users.adapters.SocialAccountAdapter"
-# SOCIALACCOUNT_FORMS = {"signup": "poupeai_finance_service.users.forms.UserSocialSignupForm"}
+# ACCOUNT_ADAPTER = "poupeai_finance_service.profiles.adapters.AccountAdapter"
+# ACCOUNT_FORMS = {"signup": "poupeai_finance_service.profiles.forms.UserSignupForm"}
+# SOCIALACCOUNT_ADAPTER = "poupeai_finance_service.profiles.adapters.SocialAccountAdapter"
+# SOCIALACCOUNT_FORMS = {"signup": "poupeai_finance_service.profiles.forms.UserSocialSignupForm"}
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
+        "poupeai_finance_service.profiles.authentication.KeycloakSubProfileAuthentication",
+        #"rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -392,6 +392,9 @@ SPECTACULAR_SETTINGS = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-}
+# Keycloak Configuration
+# ------------------------------------------------------------------------------
+KEYCLOAK_REALM_URL = env("KEYCLOAK_REALM_URL", default="http://localhost:8080/realms/poupe-ai")
+KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
+KEYCLOAK_ISSUER = env("KEYCLOAK_ISSUER", default="http://localhost:8080/realms/poupe-ai")
+KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://localhost:8080/realms/poupe-ai/protocol/openid-connect/certs")
