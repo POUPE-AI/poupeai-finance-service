@@ -6,7 +6,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.credit_cards.validators import validate_closing_due_days_not_equal
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 
 class CreditCardSerializer(serializers.ModelSerializer):
     brand_display = serializers.CharField(source='get_brand_display', read_only=True)

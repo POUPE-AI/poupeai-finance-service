@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from poupeai_finance_service.goals.validators import validate_date_not_in_past
 from poupeai_finance_service.goals.models import Goal, GoalDeposit
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 
 class GoalValidationMixin:    
     def _validate_initial_balance(self, data):
