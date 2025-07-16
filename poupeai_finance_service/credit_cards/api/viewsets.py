@@ -16,8 +16,7 @@ from poupeai_finance_service.credit_cards.api.serializers import (
     InvoicePaymentSerializer,
 )
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
-from poupeai_finance_service.users.api.permissions import IsProfileActive
-from poupeai_finance_service.users.querysets import get_profile_by_user
+from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 
 @extend_schema_view(
     list=extend_schema(
@@ -60,14 +59,14 @@ class CreditCardViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated:
-            profile = get_profile_by_user(user)
+            profile = user
             return self.queryset.filter(profile=profile).order_by('name')
         return self.queryset.none()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         if self.request.user.is_authenticated:
-            context['profile'] = get_profile_by_user(self.request.user)
+            context['profile'] = self.request.user
         return context
 
 @extend_schema_view(
@@ -112,7 +111,7 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
     ordering = ['-year', '-month']
 
     def get_queryset(self):
-        user_profile = self.request.user.profile
+        user_profile = self.request.user
         credit_card_id = self.kwargs.get('id')
 
         if not credit_card_id:
@@ -132,7 +131,7 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
             return Response({'detail': _('Invoice already paid.')}, status=status.HTTP_409_CONFLICT)
 
         context = {
-            'profile': request.user.profile,
+            'profile': request.user,
             'invoice': invoice
         }
         serializer = InvoicePaymentSerializer(data=request.data, context=context)
