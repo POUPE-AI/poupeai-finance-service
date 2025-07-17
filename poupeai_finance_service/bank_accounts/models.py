@@ -4,7 +4,7 @@ from django.core.validators import MinValueValidator
 from django.db.models import Sum, F
 
 from poupeai_finance_service.core.models import TimeStampedModel
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 
 class BankAccount(TimeStampedModel):
     name = models.CharField(_('Name'), max_length=50)

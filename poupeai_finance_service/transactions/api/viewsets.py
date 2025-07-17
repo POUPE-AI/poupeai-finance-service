@@ -69,7 +69,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return TransactionDetailSerializer
 
     def get_queryset(self):
-        user_profile = self.request.user.profile
+        user_profile = self.request.user
         queryset = self.queryset.filter(profile=user_profile)
 
         category_id = self.request.query_params.get('category_id')
@@ -115,7 +115,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(profile=self.request.user.profile)
+        serializer.save(profile=self.request.user)
     
     def perform_destroy(self, instance):
         deletion_option = self.request.data.get('deletion_option')

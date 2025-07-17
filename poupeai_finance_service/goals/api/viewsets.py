@@ -14,8 +14,7 @@ from poupeai_finance_service.goals.api.serializers import (
     GoalDetailSerializer, 
     GoalDepositSerializer
 )
-from poupeai_finance_service.users.api.permissions import IsProfileActive
-from poupeai_finance_service.users.querysets import get_profile_by_user
+from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 from django.utils import timezone
 
 @extend_schema_view(
@@ -67,14 +66,14 @@ class GoalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated:
-            profile = get_profile_by_user(user)
+            profile = user
             return self.queryset.filter(profile=profile)
         return self.queryset.none()
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
         if self.request.user.is_authenticated:
-            context['profile'] = get_profile_by_user(self.request.user)
+            context['profile'] = self.request.user
         return context
     
 @extend_schema_view(
@@ -100,7 +99,7 @@ class GoalDepositViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         if self.request.user.is_authenticated:
-            context['profile'] = get_profile_by_user(self.request.user)
+            context['profile'] = self.request.user
         
         goal_id = self.kwargs.get('id')
         if goal_id:
@@ -110,7 +109,7 @@ class GoalDepositViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
     def create(self, request, *args, **kwargs):
         id = self.kwargs.get('id')
-        profile = get_profile_by_user(request.user)
+        profile = request.user
         goal = get_object_or_404(Goal, pk=id, profile=profile)
 
         serializer = self.get_serializer(data=request.data)

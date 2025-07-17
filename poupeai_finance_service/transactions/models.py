@@ -10,7 +10,7 @@ from poupeai_finance_service.bank_accounts.models import BankAccount
 from poupeai_finance_service.categories.models import Category
 from poupeai_finance_service.core.models import TimeStampedModel
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
-from poupeai_finance_service.users.models import Profile
+from poupeai_finance_service.profiles.models import Profile
 from .managers import TransactionManager
     
 class Transaction(TimeStampedModel):

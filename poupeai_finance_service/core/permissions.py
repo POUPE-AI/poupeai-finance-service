@@ -10,14 +10,13 @@ class IsOwnerProfile(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
 
-
         if hasattr(obj, 'profile'):
-            return obj.profile == request.user.profile
+            return obj.profile == request.user
         
-        if hasattr(obj, 'user') and hasattr(request.user, 'profile'):
-            return obj == request.user.profile
+        if hasattr(obj, 'user') and request.user:
+            return obj == request.user
 
-        if hasattr(obj, 'credit_card') and hasattr(request.user, 'profile'):
-            return obj.credit_card.profile == request.user.profile
+        if hasattr(obj, 'credit_card') and request.user:
+            return obj.credit_card.profile == request.user
             
         return False

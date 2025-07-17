@@ -6,7 +6,7 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from poupeai_finance_service.bank_accounts.api.serializers import BankAccountSerializer, BankAccountUpdateSerializer
 from poupeai_finance_service.bank_accounts.models import BankAccount
-from poupeai_finance_service.users.api.permissions import IsProfileActive
+from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 
 @extend_schema_view(
     list=extend_schema(
@@ -45,7 +45,7 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsProfileActive, IsAuthenticated]
 
     def get_queryset(self):
-        return self.queryset.filter(profile=self.request.user.profile)
+        return self.queryset.filter(profile=self.request.user)
 
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -53,7 +53,7 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         return BankAccountSerializer
 
     def perform_create(self, serializer):
-        serializer.save(profile=self.request.user.profile)
+        serializer.save(profile=self.request.user)
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

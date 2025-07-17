@@ -13,7 +13,7 @@ class IsProfileActive(permissions.BasePermission):
         if not request.user.is_authenticated:
             return False 
 
-        profile = request.user.profile
+        profile = request.user
         
         if profile.is_deactivated:
             if profile.deactivation_scheduled_at:
