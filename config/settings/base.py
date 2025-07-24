@@ -397,4 +397,4 @@ SPECTACULAR_SETTINGS = {
 KEYCLOAK_REALM_URL = env("KEYCLOAK_REALM_URL", default="http://localhost:8080/realms/poupe-ai")
 KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
 KEYCLOAK_ISSUER = env("KEYCLOAK_ISSUER", default="http://localhost:8080/realms/poupe-ai")
-KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://localhost:8080/realms/poupe-ai/protocol/openid-connect/certs")
+KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://keycloak:8080/realms/poupe-ai/protocol/openid-connect/certs")
