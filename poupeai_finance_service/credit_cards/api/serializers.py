@@ -17,6 +17,8 @@ class CreditCardSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'credit_limit',
+            'used_credit_limit',
+            'available_credit_limit',
             'additional_info',
             'closing_day',
             'due_day',
@@ -25,7 +27,7 @@ class CreditCardSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'brand_display']
+        read_only_fields = ['id', 'used_credit_limit', 'available_credit_limit', 'created_at', 'updated_at', 'brand_display']
 
     def validate(self, data):
         profile = self.context.get('profile', self.instance.profile if self.instance else None)

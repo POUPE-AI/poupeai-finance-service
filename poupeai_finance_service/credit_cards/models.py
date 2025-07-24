@@ -1,6 +1,7 @@
 from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 
 from poupeai_finance_service.core.models import TimeStampedModel
@@ -75,6 +76,17 @@ class CreditCard(TimeStampedModel):
             validate_closing_due_days_not_equal(self.closing_day, self.due_day)
         except ValidationError as e:
             raise ValidationError({'due_day': e.message})
+        
+    @property
+    def used_credit_limit(self):
+        total = self.transactions.filter(invoice__payment_date__isnull=True).aggregate(
+            total_used=models.Sum('amount')
+        )['total_used'] or 0
+        return total
+    
+    @property
+    def available_credit_limit(self):
+        return self.credit_limit - self.used_credit_limit
 
 class Invoice(TimeStampedModel):
     """
