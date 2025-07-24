@@ -25,17 +25,17 @@ class TransactionManager(models.Manager):
     def create_installment_transactions(self, **validated_data):
         credit_card = validated_data['credit_card']
         total_installments = validated_data['total_installments']
-        transaction_date = validated_data['transaction_date']
+        issue_date = validated_data['issue_date']
         original_purchase_description = validated_data.get('description')
 
         purchase_group_uuid = uuid.uuid4()
         transactions = []
 
         for i in range(1, total_installments + 1):
-            installment_transaction_date = self._calculate_installment_date(transaction_date, i-1)
+            installment_issue_date = self._calculate_installment_date(issue_date, i-1)
             invoice = Invoice.objects.get_or_create_invoice(
                 credit_card=credit_card,
-                transaction_date=installment_transaction_date
+                issue_date=installment_issue_date
             )
 
             installment_data = {
@@ -45,7 +45,7 @@ class TransactionManager(models.Manager):
                 'total_installments': total_installments,
                 'purchase_group_uuid': purchase_group_uuid,
                 'original_purchase_description': original_purchase_description,
-                'transaction_date': installment_transaction_date,
+                'issue_date': installment_issue_date,
                 'invoice': invoice,
                 'description': f"{original_purchase_description} ({i}/{total_installments})",
             }

@@ -16,7 +16,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = [
             'id', 'profile', 'category', 'category_name', 'description',
-            'amount', 'transaction_date', 'type', 'source_type',
+            'amount', 'issue_date', 'type', 'source_type',
             'bank_account', 'credit_card', 'is_installment', 'installment_number',
             'total_installments', 'purchase_group_uuid', 'original_purchase_description',
             'invoice', 'original_transaction_id', 'original_statement_description',
@@ -28,7 +28,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not category:
             return category
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -40,7 +40,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not bank_account:
             return bank_account
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -52,7 +52,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
         if not credit_card:
             return credit_card
             
-        profile = self.context.get('request').user.profile if self.context.get('request') else None
+        profile = self.context.get('request').user if self.context.get('request') else None
         if self.instance:
             profile = profile or self.instance.profile
             
@@ -62,7 +62,7 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not self.instance and 'profile' not in data:
-            data['profile'] = self.context['request'].user.profile
+            data['profile'] = self.context['request'].user
 
         source_type = data.get('source_type')
         bank_account = data.get('bank_account')
@@ -103,7 +103,7 @@ class TransactionListSerializer(TransactionBaseSerializer):
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = [
-            'id', 'description', 'amount', 'transaction_date',
+            'id', 'description', 'amount', 'issue_date',
             'type', 'source_type', 'category_name', 'status',
             'bank_account_name', 'credit_card_name'
         ]
@@ -133,7 +133,7 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = [
-            'id', 'category', 'description', 'amount', 'transaction_date',
+            'id', 'category', 'description', 'amount', 'issue_date',
             'source_type', 'bank_account', 'credit_card',
             'is_installment', 'installment_number', 'total_installments',
             'original_purchase_description', 'original_transaction_id',
@@ -160,10 +160,15 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
         is_installment = data.get('is_installment', getattr(instance, 'is_installment', False))
         installment_number = data.get('installment_number', getattr(instance, 'installment_number', None))
         total_installments = data.get('total_installments', getattr(instance, 'total_installments', None))
+        credit_card = data.get('credit_card', getattr(instance, 'credit_card', None))
         
         if source_type == 'CREDIT_CARD':
             if category and category.type != 'expense':
                 raise serializers.ValidationError({"category": _("Credit card transactions must be of 'expense' category type.")})
+            
+        if source_type == 'CREDIT_CARD' and credit_card:
+            if credit_card.credit_limit < data.get('amount', 0):
+                raise serializers.ValidationError({"credit_card": _("Credit card limit is not enough.")})
 
         if source_type == 'CREDIT_CARD' and is_installment:
             if total_installments is None or total_installments < 1:

@@ -33,12 +33,12 @@ class TransactionService:
             transactions = Transaction.objects.create_installment_transactions(**data)
             return transactions[0] if transactions else None
         else:
-            if source_type == 'CREDIT_CARD' and 'transaction_date' in data:
+            if source_type == 'CREDIT_CARD' and 'issue_date' in data:
                 credit_card = data.get('credit_card')
                 if credit_card:
                     data['invoice'] = Invoice.objects.get_or_create_invoice(
                         credit_card=credit_card,
-                        transaction_date=data['transaction_date']
+                        issue_date=data['issue_date']
                     )
 
             transaction_instance = Transaction(**data)
@@ -54,9 +54,9 @@ class TransactionService:
                 {"source_type": _("Cannot change transaction source type after creation.")}
             )
 
-        if instance.source_type == 'CREDIT_CARD' and 'transaction_date' in data:
+        if instance.source_type == 'CREDIT_CARD' and 'issue_date' in data:
             raise DjangoValidationError(
-                {"transaction_date": _("Cannot change transaction date for credit card transactions.")}
+                {"issue_date": _("Cannot change transaction date for credit card transactions.")}
             )
 
         if instance.source_type == 'CREDIT_CARD' and 'credit_card' in data:
