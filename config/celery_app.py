@@ -31,6 +31,6 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     "remove_expired_profiles_daily": {
         "task": "poupeai_finance_service.profiles.tasks.remove_expired_profiles",
-        "schedule": crontab(hour=9, minute=45),
+        "schedule": crontab(hour=23, minute=59),
     },
 }

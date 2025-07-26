@@ -398,3 +398,8 @@ KEYCLOAK_REALM_URL = env("KEYCLOAK_REALM_URL", default="http://localhost:8080/re
 KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
 KEYCLOAK_ISSUER = env("KEYCLOAK_ISSUER", default="http://localhost:8080/realms/poupe-ai")
 KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://keycloak:8080/realms/poupe-ai/protocol/openid-connect/certs")
+
+KEYCLOAK_SERVER_URL = env("KEYCLOAK_SERVER_URL", default="http://keycloak:8080/")
+KEYCLOAK_REALM_NAME = env("KEYCLOAK_REALM_NAME", default="poupe-ai")
+KEYCLOAK_ADMIN_CLIENT_ID = env("KEYCLOAK_ADMIN_CLIENT_ID", default="poupe-ai-backend")
+KEYCLOAK_ADMIN_CLIENT_SECRET = env("KEYCLOAK_ADMIN_CLIENT_SECRET", default="client-secret")
