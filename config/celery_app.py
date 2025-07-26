@@ -1,6 +1,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import setup_logging
 
 # set the default Django settings module for the 'celery' program.
@@ -26,3 +27,10 @@ def config_loggers(*args, **kwargs):
 
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
+
+app.conf.beat_schedule = {
+    "remove_expired_profiles_daily": {
+        "task": "poupeai_finance_service.profiles.tasks.remove_expired_profiles",
+        "schedule": crontab(hour=9, minute=45),
+    },
+}
