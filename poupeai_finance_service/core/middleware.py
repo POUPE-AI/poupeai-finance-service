@@ -25,23 +25,23 @@ class AuditMiddleware:
 
         response = self.get_response(request)
 
-        duration_ms = (time.monotonic() - start_time) * 1000
-        
         actor_user_id = None
-        if hasattr(request, "user") and request.user.is_authenticated:
+        if hasattr(request, "user") and request.user.is_authenticated and hasattr(request.user, "user_id"):
             actor_user_id = request.user.user_id
+        
+        if actor_user_id:
+            structlog.contextvars.bind_contextvars(actor_user_id=actor_user_id)
+
+        duration_ms = (time.monotonic() - start_time) * 1000
 
         log.info(
             "Request completed successfully",
             event_type="REQUEST_COMPLETED",
-            actor_user_id=actor_user_id,
             event_details={
                 "http": {
                     "method": request.method,
                     "path": request.path,
                     "status_code": response.status_code,
-                    "request_size_bytes": int(request.headers.get("Content-Length", 0)),
-                    "response_size_bytes": len(response.content),
                 },
                 "duration_ms": round(duration_ms, 2)
             }
