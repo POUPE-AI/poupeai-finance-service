@@ -28,3 +28,5 @@ cryptography==45.0.5 # https://github.com/pyca/cryptography/
 drf-spectacular==0.28.0  # https://github.com/tfranzel/drf-spectacular
 # Keycloak integration
 python-keycloak==5.7.0
+# Logs
+structlog==25.4.0 # https://github.com/hynek/structlog
