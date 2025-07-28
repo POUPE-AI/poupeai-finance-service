@@ -17,9 +17,12 @@ class AuditMiddleware:
         correlation_id = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
         source_ip = self.get_client_ip(request)
         
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
         structlog.contextvars.bind_contextvars(
             correlation_id=correlation_id,
             source_ip=source_ip,
+            user_agent=user_agent,
             trigger_type="user_request",
         )
 

@@ -18,6 +18,7 @@ def get_audit_data_from_context():
         "actor_user_id": context.get("actor_user_id"),
         "source_ip": context.get("source_ip"),
         "correlation_id": context.get("correlation_id"),
+        "user_agent": context.get("user_agent"),
     }
 
 @receiver(post_save, sender=Profile)
@@ -58,6 +59,7 @@ def audit_profile_changes(sender, instance, created, **kwargs):
         entity_id=str(instance.pk),
         changes=safe_changes,
         source_ip=context_data.get("source_ip"),
+        user_agent=context_data.get("user_agent"),
         correlation_id=context_data.get("correlation_id"),
         service_name=settings.SERVICE_NAME,
     )
