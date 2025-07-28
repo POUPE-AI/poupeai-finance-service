@@ -24,7 +24,7 @@ class KeycloakSubProfileAuthentication(BaseAuthentication):
             payload = self.validate_token(token)
             profile = self.get_or_create_profile(payload)
             
-            log.info(
+            log.debug(
                 "User authentication successful",
                 event_type=EventType.AUTHENTICATION_SUCCESS,
                 actor_user_id=profile.user_id
@@ -106,13 +106,13 @@ class KeycloakSubProfileAuthentication(BaseAuthentication):
         jwks = cache.get(cache_key)
         
         if not jwks:
-            log.info("JWKS not found in cache. Fetching from Keycloak.")
+            log.debug("JWKS not found in cache. Fetching from Keycloak.")
             try:
                 response = requests.get(settings.KEYCLOAK_JWKS_URL, timeout=10)
                 response.raise_for_status()
                 jwks = response.json()
                 cache.set(cache_key, jwks, 3600)
-                log.info("JWKS successfully fetched and cached.")
+                log.debug("JWKS successfully fetched and cached.")
             except requests.RequestException as e:
                 log.error("Failed to fetch JWKS from Keycloak", event_type=EventType.JWKS_FETCH_FAILED, exc_info=e)
                 raise AuthenticationFailed(f'Failed to fetch JWKS: {str(e)}') from e
