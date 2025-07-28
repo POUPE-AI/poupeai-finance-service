@@ -1,5 +1,5 @@
 from django.urls import path
-from profiles.api.viewsets import ProfileViewSet
+from .api.viewsets import ProfileViewSet
 
 app_name = "profiles"
 

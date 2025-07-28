@@ -26,3 +26,5 @@ requests==2.32.4  # https://github.com/psf/requests
 cryptography==45.0.5 # https://github.com/pyca/cryptography/
 # DRF-spectacular for api documentation
 drf-spectacular==0.28.0  # https://github.com/tfranzel/drf-spectacular
+# Keycloak integration
+python-keycloak==5.7.0

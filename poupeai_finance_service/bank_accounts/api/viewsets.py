@@ -57,8 +57,12 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        try:
-            self.perform_destroy(instance)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except ValidationError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if instance.is_default:
+            return Response(
+                {'detail': 'Cannot delete a default bank account. Please set another account as default first.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
