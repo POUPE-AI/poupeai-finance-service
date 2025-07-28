@@ -1,3 +1,4 @@
+import structlog
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,6 +7,8 @@ from drf_spectacular.utils import extend_schema
 from poupeai_finance_service.profiles.models import Profile
 from poupeai_finance_service.profiles.api.serializers import ProfileSerializer
 from poupeai_finance_service.profiles.api.permissions import IsProfileActive
+
+log = structlog.get_logger(__name__)
 
 class ProfileViewSet(viewsets.GenericViewSet):
     serializer_class = ProfileSerializer
@@ -57,6 +60,12 @@ class ProfileViewSet(viewsets.GenericViewSet):
         instance = self.get_object()
         
         if instance.is_deactivated:
+            log.warning(
+                "Attempted to deactivate an already deactivated profile",
+                event_type="PROFILE_DEACTIVATION_FAILED",
+                actor_user_id=request.user.user_id,
+                event_details={"reason": "Profile already deactivated."}
+            )
             return Response(
                 {"detail": "User profile is already deactivated or has scheduled deletion."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -64,6 +73,12 @@ class ProfileViewSet(viewsets.GenericViewSet):
 
         instance.deactivate(schedule_deletion_in_days=30)
 
+        log.info(
+            "User profile deactivated successfully",
+            event_type="PROFILE_DEACTIVATED",
+            actor_user_id=request.user.user_id,
+            event_details={"scheduled_deletion_at": instance.deactivation_scheduled_at}
+        )
         return Response(
             {"detail": "Profile successfully deactivated. Permanent deletion is scheduled."},
             status=status.HTTP_200_OK 
@@ -93,6 +108,12 @@ class ProfileViewSet(viewsets.GenericViewSet):
         instance = self.get_object()
 
         if not instance.is_deactivated:
+            log.warning(
+                "Attempted to reactivate an already active profile",
+                event_type="PROFILE_REACTIVATION_FAILED",
+                actor_user_id=request.user.user_id,
+                event_details={"reason": "Profile already active."}
+            )
             return Response(
                 {"detail": "User profile is already active."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -100,6 +121,11 @@ class ProfileViewSet(viewsets.GenericViewSet):
 
         instance.reactivate()
 
+        log.info(
+            "User profile reactivated successfully",
+            event_type="PROFILE_REACTIVATED",
+            actor_user_id=request.user.user_id,
+        )   
         return Response(
             {"detail": "Profile successfully reactivated. Scheduled deletion has been canceled."},
             status=status.HTTP_200_OK
