@@ -3,6 +3,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from poupeai_finance_service.core.models import TimeStampedModel
+from django.forms.models import model_to_dict
 
 class Profile(TimeStampedModel):
     user_id = models.UUIDField(
@@ -39,6 +40,14 @@ class Profile(TimeStampedModel):
     @property
     def username(self):
         return self.email
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_values = model_to_dict(self) if self.pk else {}
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._old_values = model_to_dict(self)
     
     def deactivate(self, schedule_deletion_in_days=30):
         """
