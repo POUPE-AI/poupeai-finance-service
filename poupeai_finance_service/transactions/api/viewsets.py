@@ -1,6 +1,8 @@
+import structlog
+from poupeai_finance_service.core.events import EventType
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,6 +21,7 @@ from poupeai_finance_service.transactions.api.serializers import (
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.transactions.services import TransactionService
 
+log = structlog.get_logger(__name__)
 
 @extend_schema_view(
     list=extend_schema(
@@ -113,47 +116,98 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 )
 
         return queryset
-    
-    def perform_create(self, serializer):
-        serializer.save(profile=self.request.user)
-    
-    def perform_destroy(self, instance):
-        deletion_option = self.request.data.get('deletion_option')
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         try:
-            TransactionService.delete_transaction(instance, deletion_option)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except DRFValidationError as e:
-            raise DRFValidationError(e.detail)
-        except Exception as e:
-            return Response(
-                {"detail": _(f"An error occurred while trying to delete the transaction: {e}")},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+
+            log.info(
+                "Transaction created successfully",
+                event_type=EventType.TRANSACTION_CREATED,
+                event_details={
+                    "transaction_id": serializer.instance.id,
+                    "type": serializer.instance.type,
+                    "source_type": serializer.instance.source_type,
+                    "amount": float(serializer.instance.amount)
+                }
             )
+            
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except (DRFValidationError, DjangoValidationError) as e:
+            log.warning(
+                "Transaction creation failed due to validation error",
+                event_type=EventType.TRANSACTION_CREATION_FAILED,
+                event_details={"errors": e.detail if hasattr(e, 'detail') else str(e)}
+            )
+            raise
     
     def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         
         try:
-            apply_to_all = request.data.get('apply_to_all_installments', False)
-            updated_instance = TransactionService.update_transaction(
-                instance,
-                serializer.validated_data,
-                apply_to_all
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+
+            log.info(
+                "Transaction updated successfully",
+                event_type=EventType.TRANSACTION_UPDATED,
+                event_details={
+                    "transaction_id": instance.id,
+                    "updated_fields": list(serializer.validated_data.keys())
+                }
             )
-            return Response(self.get_serializer(updated_instance).data)
-        except DjangoValidationError as e:
-            if hasattr(e, 'message_dict'):
-                raise DRFValidationError(e.message_dict)
-            raise DRFValidationError({'detail': str(e)})
+
+            if getattr(instance, '_prefetched_objects_cache', None):
+                instance._prefetched_objects_cache = {}
+
+            return Response(serializer.data)
+        except (DRFValidationError, DjangoValidationError) as e:
+            log.warning(
+                "Transaction update failed due to validation error",
+                event_type=EventType.TRANSACTION_UPDATE_FAILED,
+                event_details={
+                    "transaction_id": instance.id,
+                    "errors": e.detail if hasattr(e, 'detail') else str(e)
+                }
+            )
+            raise
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        deletion_option = request.data.get('deletion_option')
+        transaction_id_copy = instance.id
         
         try:
-            TransactionService.delete_transaction(instance, deletion_option)
+            self.perform_destroy(instance)
+            
+            log.info(
+                "Transaction deleted successfully",
+                event_type=EventType.TRANSACTION_DELETED,
+                event_details={"transaction_id": transaction_id_copy}
+            )
+
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except DRFValidationError as e:
-            raise DRFValidationError(e.detail)
+        except (DRFValidationError, DjangoValidationError) as e:
+            log.warning(
+                "Transaction deletion failed",
+                event_type=EventType.TRANSACTION_DELETION_FAILED,
+                event_details={
+                    "transaction_id": transaction_id_copy,
+                    "errors": e.detail if hasattr(e, 'detail') else str(e)
+                }
+            )
+            raise
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user)
+    
+    def perform_update(self, serializer):
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        deletion_option = self.request.data.get('deletion_option', 'CURRENT_ONLY')
+        TransactionService.delete_transaction(instance, deletion_option)

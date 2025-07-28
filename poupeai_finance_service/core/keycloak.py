@@ -1,9 +1,10 @@
+import structlog
 from django.conf import settings
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakError
-import logging
+from poupeai_finance_service.core.events import EventType
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
 
 def get_keycloak_admin_client() -> KeycloakAdmin | None:
     try:
@@ -16,7 +17,11 @@ def get_keycloak_admin_client() -> KeycloakAdmin | None:
             verify=True,
         )
     except Exception as e:
-        logger.error(f"Failed to initialize Keycloak admin client: {e}")
+        log.error(
+            "Failed to initialize Keycloak admin client",
+            event_type=EventType.KEYCLOAK_ADMIN_CLIENT_INIT_FAILED,
+            exc_info=e
+        )
         return None
 
 def delete_keycloak_user(user_id: str) -> bool:
@@ -25,13 +30,29 @@ def delete_keycloak_user(user_id: str) -> bool:
         return False
 
     try:
-        logger.info(f"Attempting to delete user {user_id} from Keycloak.")
+        log.info(f"Attempting to delete user {user_id} from Keycloak.")
         keycloak_admin.delete_user(user_id=user_id)
-        logger.info(f"Successfully deleted user {user_id} from Keycloak.")
+        
+        log.info(
+            "Successfully deleted user from Keycloak",
+            event_type=EventType.KEYCLOAK_USER_DELETION_SUCCESS,
+            event_details={"keycloak_user_id": user_id}
+        )
         return True
+    
     except KeycloakError as e:
         if e.response_code == 404:
-            logger.warning(f"User {user_id} not found in Keycloak. Assuming already deleted.")
+            log.warning(
+                "User not found in Keycloak. Assuming already deleted.",
+                event_type=EventType.KEYCLOAK_USER_DELETION_NOT_FOUND,
+                event_details={"keycloak_user_id": user_id}
+            )
             return True
-        logger.error(f"Error deleting user {user_id} from Keycloak: {e}")
+            
+        log.error(
+            "Error deleting user from Keycloak",
+            event_type=EventType.KEYCLOAK_USER_DELETION_ERROR,
+            event_details={"keycloak_user_id": user_id, "error_code": e.response_code},
+            exc_info=e
+        )
         return False

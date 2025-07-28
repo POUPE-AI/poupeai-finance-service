@@ -1,9 +1,13 @@
+import structlog
+from poupeai_finance_service.core.events import EventType
+
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from drf_spectacular.openapi import OpenApiParameter
 from poupeai_finance_service.goals.models import Goal
@@ -16,6 +20,8 @@ from poupeai_finance_service.goals.api.serializers import (
 )
 from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 from django.utils import timezone
+
+log = structlog.get_logger(__name__)
 
 @extend_schema_view(
     list=extend_schema(
@@ -75,6 +81,79 @@ class GoalViewSet(viewsets.ModelViewSet):
         if self.request.user.is_authenticated:
             context['profile'] = self.request.user
         return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            
+            log.info(
+                "Goal created successfully",
+                event_type=EventType.GOAL_CREATED,
+                event_details={
+                    "goal_id": serializer.instance.id,
+                    "goal_amount": float(serializer.instance.goal_amount)
+                }
+            )
+
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except DRFValidationError as e:
+            log.warning(
+                "Goal creation failed",
+                event_type=EventType.GOAL_CREATION_FAILED,
+                event_details={"errors": e.detail}
+            )
+            raise
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop('partial', False))
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+
+            log.info(
+                "Goal updated successfully",
+                event_type=EventType.GOAL_UPDATED,
+                event_details={
+                    "goal_id": instance.id,
+                    "updated_fields": list(serializer.validated_data.keys())
+                }
+            )
+
+            return Response(serializer.data)
+        except DRFValidationError as e:
+            log.warning(
+                "Goal update failed",
+                event_type=EventType.GOAL_UPDATE_FAILED,
+                event_details={"goal_id": instance.id, "errors": e.detail}
+            )
+            raise
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        goal_id_copy = instance.id
+        try:
+            self.perform_destroy(instance)
+            log.info(
+                "Goal deleted successfully",
+                event_type=EventType.GOAL_DELETED,
+                event_details={"goal_id": goal_id_copy}
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            log.error(
+                "Goal deletion failed unexpectedly",
+                event_type=EventType.GOAL_DELETION_FAILED,
+                event_details={"goal_id": goal_id_copy},
+                exc_info=e
+            )
+            raise
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user)
     
 @extend_schema_view(
     create=extend_schema(
@@ -108,17 +187,43 @@ class GoalDepositViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         return context
 
     def create(self, request, *args, **kwargs):
-        id = self.kwargs.get('id')
-        profile = request.user
-        goal = get_object_or_404(Goal, pk=id, profile=profile)
-
+        goal = get_object_or_404(Goal, pk=self.kwargs.get('id'), profile=request.user)
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(goal=goal)
-
-        if goal.current_balance >= goal.goal_amount:
-            goal.is_completed = True
-            goal.completed_at = timezone.now()
-            goal.save()
         
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            serializer.is_valid(raise_exception=True)
+            deposit = serializer.save(goal=goal)
+
+            log.info(
+                "Deposit made to goal successfully",
+                event_type=EventType.GOAL_DEPOSIT_MADE,
+                event_details={
+                    "goal_id": goal.id,
+                    "deposit_id": deposit.id,
+                    "deposit_amount": float(deposit.deposit_amount)
+                }
+            )
+
+            if goal.current_balance >= goal.goal_amount and not goal.is_completed:
+                goal.is_completed = True
+                goal.completed_at = timezone.now()
+                goal.save(update_fields=['is_completed', 'completed_at'])
+                
+                log.info(
+                    "Goal completed",
+                    event_type=EventType.GOAL_COMPLETED,
+                    event_details={
+                        "goal_id": goal.id,
+                        "final_balance": float(goal.current_balance)
+                    }
+                )
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except DRFValidationError as e:
+            log.warning(
+                "Goal deposit failed",
+                event_type=EventType.GOAL_DEPOSIT_FAILED,
+                event_details={"goal_id": goal.id, "errors": e.detail}
+            )
+            raise
