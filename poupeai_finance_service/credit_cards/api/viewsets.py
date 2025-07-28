@@ -1,8 +1,11 @@
+import structlog
+from poupeai_finance_service.core.events import EventType
+
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -17,6 +20,8 @@ from poupeai_finance_service.credit_cards.api.serializers import (
 )
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 from poupeai_finance_service.profiles.api.permissions import IsProfileActive
+
+log = structlog.get_logger(__name__)
 
 @extend_schema_view(
     list=extend_schema(
@@ -68,6 +73,69 @@ class CreditCardViewSet(ModelViewSet):
         if self.request.user.is_authenticated:
             context['profile'] = self.request.user
         return context
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            log.info(
+                "Credit card created successfully",
+                event_type=EventType.CREDIT_CARD_CREATED,
+                event_details={"credit_card_id": serializer.instance.id}
+            )
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except DRFValidationError as e:
+            log.warning(
+                "Credit card creation failed",
+                event_type=EventType.CREDIT_CARD_CREATION_FAILED,
+                event_details={"errors": e.detail}
+            )
+            raise
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop('partial', False))
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            log.info(
+                "Credit card updated successfully",
+                event_type=EventType.CREDIT_CARD_UPDATED,
+                event_details={"credit_card_id": instance.id}
+            )
+            return Response(serializer.data)
+        except DRFValidationError as e:
+            log.warning(
+                "Credit card update failed",
+                event_type=EventType.CREDIT_CARD_UPDATE_FAILED,
+                event_details={"credit_card_id": instance.id, "errors": e.detail}
+            )
+            raise
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        credit_card_id_copy = instance.id
+        try:
+            self.perform_destroy(instance)
+            log.info(
+                "Credit card deleted successfully",
+                event_type=EventType.CREDIT_CARD_DELETED,
+                event_details={"credit_card_id": credit_card_id_copy}
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            log.error(
+                "Credit card deletion failed unexpectedly",
+                event_type=EventType.CREDIT_CARD_DELETION_FAILED,
+                event_details={"credit_card_id": credit_card_id_copy},
+                exc_info=e
+            )
+            raise
+            
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user)
 
 @extend_schema_view(
     list=extend_schema(
@@ -102,6 +170,7 @@ class CreditCardViewSet(ModelViewSet):
 )
 class InvoiceViewSet(mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
+                     mixins.DestroyModelMixin,
                      viewsets.GenericViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
@@ -130,53 +199,79 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
         if invoice.is_paid:
             return Response({'detail': _('Invoice already paid.')}, status=status.HTTP_409_CONFLICT)
 
-        context = {
-            'profile': request.user,
-            'invoice': invoice
-        }
+        context = {'profile': request.user, 'invoice': invoice}
         serializer = InvoicePaymentSerializer(data=request.data, context=context)
-        serializer.is_valid(raise_exception=True)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            bank_account = serializer.context['bank_account']
+            payment_date = serializer.validated_data['payment_date']
 
-        bank_account = serializer.context['bank_account']
-        payment_date = serializer.validated_data['payment_date']
-
-        with transaction.atomic():
-            invoice.bank_account = bank_account
-            invoice.payment_date = payment_date
-            invoice.save()
-
-            invoice.transactions.update(
-                bank_account=bank_account,
-                payment_date=payment_date
+            with transaction.atomic():
+                invoice.pay(bank_account=bank_account, payment_date=payment_date)
+            
+            log.info(
+                "Invoice paid successfully",
+                event_type=EventType.INVOICE_PAID,
+                event_details={
+                    "invoice_id": invoice.id,
+                    "credit_card_id": invoice.credit_card_id,
+                    "amount": float(invoice.total_amount),
+                    "paid_with_bank_account_id": bank_account.id
+                }
             )
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except DRFValidationError as e:
+            log.warning(
+                "Invoice payment failed",
+                event_type=EventType.INVOICE_PAYMENT_FAILED,
+                event_details={"invoice_id": invoice.id, "errors": e.detail}
+            )
+            raise
 
     @action(detail=True, methods=['post'], url_path='reopen')
     def reopen(self, request, id=None, pk=None):
         invoice = self.get_object()
         if not invoice.is_paid:
             return Response({'detail': _('Invoice is not paid.')}, status=status.HTTP_409_CONFLICT)
-
-        with transaction.atomic():
-            invoice.bank_account = None
-            invoice.payment_date = None
-            invoice.save()
-
-            invoice.transactions.update(
-                bank_account=None,
-                payment_date=None
+        
+        try:
+            with transaction.atomic():
+                invoice.reopen()
+            
+            log.info(
+                "Invoice reopened successfully",
+                event_type=EventType.INVOICE_REOPENED,
+                event_details={"invoice_id": invoice.id}
             )
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            log.error(
+                "Invoice reopen failed unexpectedly",
+                event_type=EventType.INVOICE_REOPEN_FAILED,
+                event_details={"invoice_id": invoice.id},
+                exc_info=e
+            )
+            raise
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        
+        invoice_id_copy = instance.id
         try:
             instance.delete()
+            log.info(
+                "Invoice deleted successfully",
+                event_type=EventType.INVOICE_DELETED,
+                event_details={"invoice_id": invoice_id_copy}
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
+            log.error(
+                "Error deleting invoice",
+                event_type=EventType.INVOICE_DELETION_FAILED,
+                event_details={"invoice_id": invoice_id_copy, "error": str(e)},
+                exc_info=e
+            )
             return Response(
                 {"detail": _(f"Error deleting invoice: {str(e)}")},
                 status=status.HTTP_400_BAD_REQUEST
