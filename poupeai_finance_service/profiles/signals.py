@@ -4,6 +4,9 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.forms.models import model_to_dict
 
+from datetime import date, datetime
+from uuid import UUID
+
 from .models import Profile
 from poupeai_finance_service.core.models import AuditLog
 
@@ -20,20 +23,32 @@ def get_audit_data_from_context():
 @receiver(post_save, sender=Profile)
 def audit_profile_changes(sender, instance, created, **kwargs):
     context_data = get_audit_data_from_context()
-    
-    actor_id = context_data.get("actor_user_id") or instance.user_id
+    actor_id = context_data.get("actor_user_id")
 
     changes = {}
     action_type = "CREATE" if created else "UPDATE"
 
     if not created:
-        old_values = instance._old_values if hasattr(instance, '_old_values') else {}
+        old_values = getattr(instance, '_old_values', {})
         new_values = model_to_dict(instance)
         for field, new_value in new_values.items():
-            if field in old_values and old_values[field] != new_value:
-                changes[field] = [old_values[field], new_value]
+            if field in old_values and str(old_values.get(field)) != str(new_value):
+                changes[field] = [old_values.get(field), new_value]
+        
         if not changes:
             return
+
+    safe_changes = {}
+    for field, values in changes.items():
+        safe_values = []
+        for value in values:
+            if isinstance(value, (datetime, date)):
+                safe_values.append(value.isoformat())
+            elif isinstance(value, UUID):
+                safe_values.append(str(value))
+            else:
+                safe_values.append(value)
+        safe_changes[field] = safe_values
 
     AuditLog.objects.create(
         profile_id=instance.pk,
@@ -41,17 +56,18 @@ def audit_profile_changes(sender, instance, created, **kwargs):
         action_type=action_type,
         entity_type='Profile',
         entity_id=str(instance.pk),
-        changes=changes if changes else None,
+        changes=safe_changes,
         source_ip=context_data.get("source_ip"),
         correlation_id=context_data.get("correlation_id"),
         service_name=settings.SERVICE_NAME,
     )
+    
     log.info(
         f"Profile audit log created for action: {action_type}",
         event_type=f"PROFILE_{action_type}D",
         actor_user_id=actor_id,
-        trigger_type="user_request",
-        event_details={"profile_id": str(instance.pk), "changes": changes}
+        trigger_type=context_data.get("trigger_type"),
+        event_details={"profile_id": str(instance.pk), "changes": safe_changes}
     )
 
 @receiver(post_delete, sender=Profile)
