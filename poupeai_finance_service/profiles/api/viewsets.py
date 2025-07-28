@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema
 from poupeai_finance_service.profiles.models import Profile
 from poupeai_finance_service.profiles.api.serializers import ProfileSerializer
 from poupeai_finance_service.profiles.api.permissions import IsProfileActive
+from poupeai_finance_service.core.events import EventType
 
 log = structlog.get_logger(__name__)
 
@@ -62,7 +63,7 @@ class ProfileViewSet(viewsets.GenericViewSet):
         if instance.is_deactivated:
             log.warning(
                 "Attempted to deactivate an already deactivated profile",
-                event_type="PROFILE_DEACTIVATION_FAILED",
+                event_type=EventType.PROFILE_DEACTIVATION_FAILED,
                 actor_user_id=request.user.user_id,
                 event_details={"reason": "Profile already deactivated."}
             )
@@ -75,7 +76,7 @@ class ProfileViewSet(viewsets.GenericViewSet):
 
         log.info(
             "User profile deactivated successfully",
-            event_type="PROFILE_DEACTIVATED",
+            event_type=EventType.PROFILE_DEACTIVATED,
             actor_user_id=request.user.user_id,
             event_details={"scheduled_deletion_at": instance.deactivation_scheduled_at}
         )
@@ -110,7 +111,7 @@ class ProfileViewSet(viewsets.GenericViewSet):
         if not instance.is_deactivated:
             log.warning(
                 "Attempted to reactivate an already active profile",
-                event_type="PROFILE_REACTIVATION_FAILED",
+                event_type=EventType.PROFILE_REACTIVATION_FAILED,
                 actor_user_id=request.user.user_id,
                 event_details={"reason": "Profile already active."}
             )
@@ -123,7 +124,7 @@ class ProfileViewSet(viewsets.GenericViewSet):
 
         log.info(
             "User profile reactivated successfully",
-            event_type="PROFILE_REACTIVATED",
+            event_type=EventType.PROFILE_REACTIVATED,
             actor_user_id=request.user.user_id,
         )   
         return Response(

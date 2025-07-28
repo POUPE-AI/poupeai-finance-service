@@ -2,6 +2,7 @@ import time
 import uuid
 import structlog
 from django.conf import settings
+from poupeai_finance_service.core.events import EventType
 
 log = structlog.get_logger(__name__)
 
@@ -39,7 +40,7 @@ class AuditMiddleware:
 
         log.info(
             "Request completed successfully",
-            event_type="REQUEST_COMPLETED",
+            event_type=EventType.REQUEST_COMPLETED,
             event_details={
                 "http": {
                     "method": request.method,

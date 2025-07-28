@@ -9,6 +9,7 @@ from uuid import UUID
 
 from .models import Profile
 from poupeai_finance_service.core.models import AuditLog
+from poupeai_finance_service.core.events import EventType
 
 log = structlog.get_logger(__name__)
 
@@ -27,7 +28,12 @@ def audit_profile_changes(sender, instance, created, **kwargs):
     actor_id = context_data.get("actor_user_id")
 
     changes = {}
-    action_type = "CREATE" if created else "UPDATE"
+    if created:
+        action_type = "CREATE"
+        event_type = EventType.PROFILE_CREATED
+    else:
+        action_type = "UPDATE"
+        event_type = EventType.PROFILE_UPDATED
 
     if not created:
         old_values = getattr(instance, '_old_values', {})
@@ -66,7 +72,7 @@ def audit_profile_changes(sender, instance, created, **kwargs):
     
     log.info(
         f"Profile audit log created for action: {action_type}",
-        event_type=f"PROFILE_{action_type}D",
+        event_type=event_type,
         actor_user_id=actor_id,
         trigger_type=context_data.get("trigger_type"),
         event_details={"profile_id": str(instance.pk), "changes": safe_changes}
@@ -89,7 +95,7 @@ def audit_profile_deletion(sender, instance, **kwargs):
     )
     log.info(
         "Profile audit log created for action: DELETE",
-        event_type="PROFILE_DELETED",
+        event_type=EventType.PROFILE_DELETED,
         actor_user_id=actor_id,
         trigger_type="system_scheduled",
         event_details={"profile_id": str(instance.pk)}
