@@ -26,3 +26,8 @@ KEYCLOAK_JWKS_URL="http://keycloak:8080/realms/poupe-ai/protocol/openid-connect/
 # Admin Client Credentials
 KEYCLOAK_ADMIN_CLIENT_ID="poupe-ai-backend"
 KEYCLOAK_ADMIN_CLIENT_SECRET="client-secret"
+
+# RABBITMQ
+RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+RABBITMQ_EXCHANGE_MAIN=notifications_main_exchange
+RABBITMQ_ROUTING_KEY=notifications.events
