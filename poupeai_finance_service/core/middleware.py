@@ -60,3 +60,7 @@ class AuditMiddleware:
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
+
+def get_correlation_id() -> str:
+    context = structlog.contextvars.get_contextvars()
+    return context.get("correlation_id", str(uuid.uuid4()))

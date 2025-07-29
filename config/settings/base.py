@@ -438,6 +438,13 @@ SPECTACULAR_SETTINGS = {
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
+# RabbitMQ Producer Configuration
+# ------------------------------------------------------------------------------
+RABBITMQ_URL = env("RABBITMQ_URL", default="amqp://guest:guest@localhost:5672/")
+RABBITMQ_EXCHANGE_MAIN = env("RABBITMQ_EXCHANGE_MAIN", default="notifications_main_exchange")
+RABBITMQ_ROUTING_KEY = env("RABBITMQ_ROUTING_KEY", default="notifications.events")
+
+# ------------------------------------------------------------------------------
 # Keycloak Configuration
 # ------------------------------------------------------------------------------
 #

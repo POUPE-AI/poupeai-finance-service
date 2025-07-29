@@ -3,11 +3,14 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from poupeai_finance_service.profiles.models import Profile
 from poupeai_finance_service.profiles.api.serializers import ProfileSerializer
 from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 from poupeai_finance_service.core.events import EventType
+from poupeai_finance_service.core.tasks import publish_notification_event_task
+from poupeai_finance_service.core.middleware import get_correlation_id
 
 log = structlog.get_logger(__name__)
 
@@ -80,6 +83,35 @@ class ProfileViewSet(viewsets.GenericViewSet):
             actor_user_id=request.user.user_id,
             event_details={"scheduled_deletion_at": instance.deactivation_scheduled_at}
         )
+
+        correlation_id = get_correlation_id()
+        recipient_data = {
+            "user_id": str(instance.user_id),
+            "email": instance.email,
+            "name": f"{instance.first_name} {instance.last_name}".strip(),
+        }
+        
+        local_deactivation_time = timezone.localtime(instance.deactivation_scheduled_at)
+    
+        payload_data = {
+            "deletion_scheduled_at": local_deactivation_time.isoformat(),
+            "reactivate_account_deep_link": "https://poupe.ai/reactivate-account"
+        }
+
+        publish_notification_event_task.delay(
+            event_type=EventType.PROFILE_DELETION_SCHEDULED,
+            payload=payload_data,
+            recipient=recipient_data,
+            correlation_id=correlation_id
+        )
+
+        log.info(
+            "Scheduled PROFILE_DELETION_SCHEDULED notification task",
+            event_type=EventType.PROFILE_DELETION_SCHEDULED,
+            actor_user_id=request.user.user_id,
+            correlation_id=correlation_id
+        )
+
         return Response(
             {"detail": "Profile successfully deactivated. Permanent deletion is scheduled."},
             status=status.HTTP_200_OK 
