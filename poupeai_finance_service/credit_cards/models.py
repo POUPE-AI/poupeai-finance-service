@@ -111,6 +111,11 @@ class Invoice(TimeStampedModel):
     due_date = models.DateField(_('Due Date'))
     payment_date = models.DateField(_('Payment Date'), null=True, blank=True)
 
+    overdue_notification_sent = models.BooleanField(
+        default=False,
+        verbose_name=_('Overdue Notification Sent')
+    )
+
     objects = InvoiceManager()
 
     class Meta:
