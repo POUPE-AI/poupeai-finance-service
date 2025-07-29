@@ -37,4 +37,8 @@ app.conf.beat_schedule = {
         "task": "poupeai_finance_service.credit_cards.tasks.check_and_notify_overdue_invoices",
         "schedule": crontab(hour=9, minute=0),
     },
+    "check-due-soon-invoices-daily": {
+        "task": "poupeai_finance_service.credit_cards.tasks.check_and_notify_due_soon_invoices",
+        "schedule": crontab(hour=9, minute=5),
+    },
 }
