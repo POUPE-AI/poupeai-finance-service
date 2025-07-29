@@ -116,6 +116,11 @@ class Invoice(TimeStampedModel):
         verbose_name=_('Overdue Notification Sent')
     )
 
+    due_soon_notification_sent = models.BooleanField(
+        default=False,
+        verbose_name=_('Due Soon Notification Sent')
+    )
+
     objects = InvoiceManager()
 
     class Meta:
