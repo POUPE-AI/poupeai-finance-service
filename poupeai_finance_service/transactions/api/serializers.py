@@ -9,13 +9,16 @@ class TransactionBaseSerializer(serializers.ModelSerializer):
     """
     Base serializer for Transaction model, used for common fields.
     """
-    category_name = serializers.CharField(source='category.name', read_only=True)
     type = serializers.CharField(read_only=True)
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
 
     class Meta:
         model = Transaction
         fields = [
-            'id', 'profile', 'category', 'category_name', 'description',
+            'id', 'profile', 'category', 'description',
             'amount', 'issue_date', 'type', 'source_type',
             'bank_account', 'credit_card', 'is_installment', 'installment_number',
             'total_installments', 'purchase_group_uuid', 'original_purchase_description',
@@ -98,30 +101,30 @@ class TransactionListSerializer(TransactionBaseSerializer):
     """
     Serializer for listing transactions, showing essential fields.
     """
-    bank_account_name = serializers.CharField(source='bank_account.name', read_only=True)
-    credit_card_name = serializers.CharField(source='credit_card.name', read_only=True)
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = [
             'id', 'description', 'amount', 'issue_date',
-            'type', 'source_type', 'category_name', 'status',
-            'bank_account_name', 'credit_card_name'
+            'type', 'source_type', 'category', 'status',
+            'bank_account', 'credit_card'
         ]
 
 class TransactionDetailSerializer(TransactionBaseSerializer):
     """
     Serializer for retrieving detailed transaction information.
     """
-    bank_account_name = serializers.CharField(source='bank_account.name', read_only=True)
-    credit_card_name = serializers.CharField(source='credit_card.name', read_only=True)
     category_type = serializers.CharField(source='category.type', read_only=True)
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = TransactionBaseSerializer.Meta.fields + [
-            'bank_account_name', 'credit_card_name', 'category_type'
+            'bank_account', 'credit_card', 'category_type'
         ]
         read_only_fields = TransactionBaseSerializer.Meta.read_only_fields + [
-            'bank_account_name', 'credit_card_name', 'category_type'
+            'bank_account', 'credit_card', 'category_type'
         ]
 
 class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
@@ -130,6 +133,10 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
     Delegates complex logic to TransactionService.
     """
     apply_to_all_installments = serializers.BooleanField(write_only=True, required=False, default=False)
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = [
