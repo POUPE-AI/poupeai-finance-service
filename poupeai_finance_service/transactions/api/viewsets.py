@@ -60,6 +60,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerProfile]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ['purchase_group_uuid', 'category', 'source_type', 'type']
     search_fields = ['description', 'original_purchase_description', 'original_statement_description']
     ordering_fields = ['issue_date', 'amount', 'created_at']
     ordering = ['-issue_date']
@@ -75,10 +76,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
         user_profile = self.request.user
         queryset = self.queryset.filter(profile=user_profile)
 
-        category_id = self.request.query_params.get('category_id')
-        if category_id:
-            queryset = queryset.filter(category_id=category_id)
-
         issue_date_start = self.request.query_params.get('issue_date_start')
         if issue_date_start:
             queryset = queryset.filter(issue_date__gte=issue_date_start)
@@ -86,14 +83,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
         issue_date_end = self.request.query_params.get('issue_date_end')
         if issue_date_end:
             queryset = queryset.filter(issue_date__lte=issue_date_end)
-
-        source_type = self.request.query_params.get('source_type')
-        if source_type:
-            queryset = queryset.filter(source_type__iexact=source_type)
-
-        transaction_type = self.request.query_params.get('type') # INCOME or EXPENSE
-        if transaction_type:
-            queryset = queryset.filter(type__iexact=transaction_type)
         
         status_param = self.request.query_params.get('status')
         if status_param:
