@@ -7,7 +7,7 @@ on:
 env:
   IMAGE_NAME: franciscopaulinoq/poupeai-finance-service
   INFRA_DIR: /home/deployer/poupeai-infra
-  COMPOSE_SERVICE_NAME: finance-service
+  COMPOSE_SERVICE_NAME: finances-service
 
 jobs:
   build_and_push:
