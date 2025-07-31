@@ -3,9 +3,15 @@ from django.utils.translation import gettext_lazy as _
 from poupeai_finance_service.budgets.models import Budget
 
 class CreateBudgetSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
+    
     class Meta:
         model = Budget
         fields = [
+            'id',
             'category',
             'name',
             'amount'
@@ -29,6 +35,17 @@ class CreateBudgetSerializer(serializers.ModelSerializer):
         return category
 
 class BudgetSerializer(serializers.ModelSerializer):
+
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
+    
+    actual_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False)
+
     class Meta:
         model = Budget
         fields = [

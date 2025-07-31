@@ -146,6 +146,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "poupeai_finance_service.core.middleware.AuditMiddleware",
     # "allauth.account.middleware.AccountMiddleware",
 ]
 
@@ -240,28 +241,72 @@ MANAGERS = ADMINS
 # Force the `admin` sign in process to go through the `django-allauth` workflow
 # DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=False)
 
+SERVICE_NAME = "finance-service"
+
 # LOGGING
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
+import structlog
+from poupeai_finance_service.core.logging import audit_formatter_processor
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+        "json_audit": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+            "foreign_pre_chain": [
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+            ],
         },
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": "json_audit",
         },
     },
-    "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "celery": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
 }
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        audit_formatter_processor,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
@@ -393,12 +438,29 @@ SPECTACULAR_SETTINGS = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
+# RabbitMQ Producer Configuration
+# ------------------------------------------------------------------------------
+RABBITMQ_URL = env("RABBITMQ_URL", default="amqp://guest:guest@localhost:5672/")
+RABBITMQ_EXCHANGE_MAIN = env("RABBITMQ_EXCHANGE_MAIN", default="notifications_main_exchange")
+RABBITMQ_ROUTING_KEY = env("RABBITMQ_ROUTING_KEY", default="notifications.events")
+
+# ------------------------------------------------------------------------------
 # Keycloak Configuration
 # ------------------------------------------------------------------------------
-KEYCLOAK_REALM_URL = env("KEYCLOAK_REALM_URL", default="http://localhost:8080/realms/poupe-ai")
-KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
+#
+# General Authentication Settings
+KEYCLOAK_REALM_NAME = env("KEYCLOAK_REALM_NAME", default="poupe-ai")
+KEYCLOAK_SERVER_URL = env("KEYCLOAK_SERVER_URL", default="http://keycloak:8080/")
 KEYCLOAK_ISSUER = env("KEYCLOAK_ISSUER", default="http://localhost:8080/realms/poupe-ai")
-KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://localhost:8080/realms/poupe-ai/protocol/openid-connect/certs")
+KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
+KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://keycloak:8080/realms/poupe-ai/protocol/openid-connect/certs")
+
+# Admin Client Credentials
+KEYCLOAK_ADMIN_CLIENT_ID = env("KEYCLOAK_ADMIN_CLIENT_ID", default="poupe-ai-backend")
+KEYCLOAK_ADMIN_CLIENT_SECRET = env("KEYCLOAK_ADMIN_CLIENT_SECRET", default="client-secret")
 
 # Reports Service Configuration
 REPORTS_SERVICE_URL = env("REPORTS_SERVICE_URL", default="http://reports-service:8081/api/v1")
+
+

@@ -6,4 +6,7 @@ class ProfilesConfig(AppConfig):
     name = 'poupeai_finance_service.profiles'
 
     def ready(self):
-        pass
+        try:
+            import poupeai_finance_service.profiles.signals
+        except ImportError:
+            pass
