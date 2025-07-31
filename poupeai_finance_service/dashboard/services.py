@@ -1,10 +1,14 @@
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 from django.utils import timezone
 from django.db import models
+
+from django.conf import settings
+from collections import defaultdict
+import requests
 
 
 def get_initial_balance_until(profile, bank_accounts, until_date):
@@ -145,3 +149,46 @@ def get_invoices_summary(profile, year, month):
         "chart_data": invoices_data
     }
 
+def fetch_savings_estimate(profile, account_id, transactions_queryset):
+    """
+    Estima a economia mensal com base nas transações de receita e despesa.
+    """
+    today = date.today()
+    first_day_3_months_ago = (today.replace(day=1) - timedelta(days=1)).replace(day=1) - timedelta(days=1)
+    first_day_3_months_ago = first_day_3_months_ago.replace(day=1)
+    
+    transactions = transactions_queryset.filter(
+        transaction_date__gte=first_day_3_months_ago
+    )
+
+    if len(transactions) == 0:
+        return 0.0
+
+    tx_list = []
+    for t in transactions:
+        tx_list.append({
+            "id": t.id,
+            "description": t.description,
+            "amount": float(t.amount),
+            "date": t.transaction_date.isoformat(),
+            "category": t.category.name if hasattr(t, "category") and t.category else "",
+            "type": t.type,
+        })
+
+    payload = {
+        "accountId": str(account_id),
+        "startDate": first_day_3_months_ago.isoformat(),
+        "endDate": today.isoformat(),
+        "transactions": tx_list,
+    }
+
+    url = f"{settings.REPORTS_SERVICE_URL}/savings/estimate"
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        # Logue o erro conforme seu padrão
+        print(f"Erro ao requisitar savings estimate: {e}")
+        return 0.0
+    

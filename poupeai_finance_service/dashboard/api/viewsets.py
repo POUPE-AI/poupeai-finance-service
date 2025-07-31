@@ -9,14 +9,13 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from poupeai_finance_service.bank_accounts.models import BankAccount
 
-from poupeai_finance_service.users.querysets import get_profile_by_user
-
 from poupeai_finance_service.dashboard.services import (
     get_transactions_by_period,
     get_chart_data,
     get_initial_balance_until,
     get_category_summary,
-    get_invoices_summary
+    get_invoices_summary,
+    fetch_savings_estimate
 )
 
 from poupeai_finance_service.dashboard.tools import get_difference_in_percent
@@ -54,7 +53,7 @@ class DashboardView(APIView):
             end = start.replace(month=start.month+1)
         
         # Get the profile of the authenticated user
-        profile = get_profile_by_user(self.request.user)
+        profile = self.request.user
         
         # Get transactions for the specified period
         incomes, expenses = get_transactions_by_period(profile, start, end)
@@ -74,6 +73,8 @@ class DashboardView(APIView):
         expenses_summary = get_category_summary(profile, bank_accounts, 'expense', start, end)
         invoices_summary = get_invoices_summary(profile, start.year, start.month)
 
+        estimated_saving = fetch_savings_estimate(profile, start.year, start.month)
+
         return Response({
             "message": "Dashboard data retrieved successfully.",
             "start_date": start.isoformat() if period else None,
@@ -87,5 +88,5 @@ class DashboardView(APIView):
             "expenses": expenses_summary,
             "invoices": invoices_summary,
             "spending_by_category": {},
-            "estimated_saving": 0,
+            "estimated_saving": estimated_saving,
         }, status=200)
