@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/v1/transactions/", include('poupeai_finance_service.transactions.urls', namespace='transactions')),
     path("api/v1/goals/", include("poupeai_finance_service.goals.urls", namespace="goals")),
     path("api/v1/budgets/", include("poupeai_finance_service.budgets.urls", namespace="budgets")),
+    path("api/v1/dashboard/", include("poupeai_finance_service.dashboard.urls", namespace="dashboard")),
 ]
 
 # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
