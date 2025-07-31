@@ -4,6 +4,9 @@ from .base import INSTALLED_APPS
 from .base import MIDDLEWARE
 from .base import env
 
+from socket import gethostbyname
+from socket import gethostname
+
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
@@ -14,7 +17,8 @@ SECRET_KEY = env(
     default="gQtLhidqPT3vU0DMN699tQ7e62VjtdK4RMEAT8Cr9PQFp7mxcVxFdcIuSjkyR2ae",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "finances-service"]  # noqa: S104
+ALLOWED_HOSTS.append(gethostbyname(gethostname()))
 
 # CACHES
 # ------------------------------------------------------------------------------

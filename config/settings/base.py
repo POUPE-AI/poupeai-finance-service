@@ -1,10 +1,14 @@
 # ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
+from datetime import timedelta
 import ssl
 from pathlib import Path
 
 import environ
+
+#from dotenv import load_dotenv
+#load_dotenv()
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # poupeai_finance_service/
@@ -84,6 +88,7 @@ LOCAL_APPS = [
     "poupeai_finance_service.credit_cards",
     "poupeai_finance_service.goals",
     "poupeai_finance_service.transactions",
+    "poupeai_finance_service.profiles",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -100,9 +105,9 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
-# AUTH_USER_MODEL = "users.User"
+# AUTH_USER_MODEL = "users.CustomUser"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
-# LOGIN_REDIRECT_URL = "users:redirect"
+# LOGIN_REDIRECT_URL = "profiles:redirect"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-url
 # LOGIN_URL = "account_login"
 
@@ -140,6 +145,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "poupeai_finance_service.core.middleware.AuditMiddleware",
     # "allauth.account.middleware.AccountMiddleware",
 ]
 
@@ -234,28 +240,72 @@ MANAGERS = ADMINS
 # Force the `admin` sign in process to go through the `django-allauth` workflow
 # DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=False)
 
+SERVICE_NAME = "finance-service"
+
 # LOGGING
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
+import structlog
+from poupeai_finance_service.core.logging import audit_formatter_processor
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+        "json_audit": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+            "foreign_pre_chain": [
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+            ],
         },
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": "json_audit",
         },
     },
-    "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "celery": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
 }
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        audit_formatter_processor,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
@@ -306,21 +356,26 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 # ACCOUNT_LOGIN_METHODS = {"username"}
 # ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-# ACCOUNT_ADAPTER = "poupeai_finance_service.users.adapters.AccountAdapter"
-# ACCOUNT_FORMS = {"signup": "poupeai_finance_service.users.forms.UserSignupForm"}
-# SOCIALACCOUNT_ADAPTER = "poupeai_finance_service.users.adapters.SocialAccountAdapter"
-# SOCIALACCOUNT_FORMS = {"signup": "poupeai_finance_service.users.forms.UserSocialSignupForm"}
+# ACCOUNT_ADAPTER = "poupeai_finance_service.profiles.adapters.AccountAdapter"
+# ACCOUNT_FORMS = {"signup": "poupeai_finance_service.profiles.forms.UserSignupForm"}
+# SOCIALACCOUNT_ADAPTER = "poupeai_finance_service.profiles.adapters.SocialAccountAdapter"
+# SOCIALACCOUNT_FORMS = {"signup": "poupeai_finance_service.profiles.forms.UserSocialSignupForm"}
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        # "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "poupeai_finance_service.profiles.authentication.KeycloakSubProfileAuthentication",
+        #"rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'PAGE_SIZE_QUERY_PARAM': 'page_size',
+    'MAX_PAGE_SIZE': 100,
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
@@ -329,11 +384,77 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "poupeai-finance-service API",
-    "DESCRIPTION": "Documentation of API endpoints of poupeai-finance-service",
-    "VERSION": "1.0.0",
+    "TITLE": "Finance Service API",
+    "DESCRIPTION": "Finance Service API documentation",
+    "VERSION": "0.0.1",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
+    "TAGS": [
+        {
+            "name": "Authentication",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "User Management",
+            "description": "User profile and account management endpoints"
+        },
+        {
+            "name": "Categories",
+            "description": "Categories management endpoints"
+        },
+        {
+            "name": "Bank Accounts",
+            "description": "Bank account management endpoints"
+        },
+        {
+            "name": "Credit Cards",
+            "description": "Credit card management endpoints"
+        },
+        {
+            "name": "Invoices",
+            "description": "Credit card invoices management endpoints"
+        },
+        {
+            "name": "Goals",
+            "description": "Goals management endpoints"
+        },
+        {
+            "name": "Goals Deposits",
+            "description": "Goals deposits endpoint"
+        },
+        {
+            "name": "Transactions",
+            "description": "Financial transaction management endpoints"
+        },
+        {
+            "name": "Budgets",
+            "description": "Budget management endpoints"
+        },
+    ],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATION_PARAMETERS": False,
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# RabbitMQ Producer Configuration
+# ------------------------------------------------------------------------------
+RABBITMQ_URL = env("RABBITMQ_URL", default="amqp://guest:guest@localhost:5672/")
+RABBITMQ_EXCHANGE_MAIN = env("RABBITMQ_EXCHANGE_MAIN", default="notifications_main_exchange")
+RABBITMQ_ROUTING_KEY = env("RABBITMQ_ROUTING_KEY", default="notifications.events")
+
+# ------------------------------------------------------------------------------
+# Keycloak Configuration
+# ------------------------------------------------------------------------------
+#
+# General Authentication Settings
+KEYCLOAK_REALM_NAME = env("KEYCLOAK_REALM_NAME", default="poupe-ai")
+KEYCLOAK_SERVER_URL = env("KEYCLOAK_SERVER_URL", default="http://keycloak:8080/")
+KEYCLOAK_ISSUER = env("KEYCLOAK_ISSUER", default="http://localhost:8080/realms/poupe-ai")
+KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="account")
+KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://keycloak:8080/realms/poupe-ai/protocol/openid-connect/certs")
+
+# Admin Client Credentials
+KEYCLOAK_ADMIN_CLIENT_ID = env("KEYCLOAK_ADMIN_CLIENT_ID", default="poupe-ai-backend")
+KEYCLOAK_ADMIN_CLIENT_SECRET = env("KEYCLOAK_ADMIN_CLIENT_SECRET", default="client-secret")
