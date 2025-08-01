@@ -117,7 +117,7 @@ class TransactionDetailSerializer(TransactionBaseSerializer):
     """
     Serializer for retrieving detailed transaction information.
     """
-    category_type = serializers.CharField(source='category.type', read_only=True)
+    category_type = serializers.CharField(source='category.type', read_only=True) # PARA OTIMIZAR
 
     class Meta(TransactionBaseSerializer.Meta):
         fields = TransactionBaseSerializer.Meta.fields + [

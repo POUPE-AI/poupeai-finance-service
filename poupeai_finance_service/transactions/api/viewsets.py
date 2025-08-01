@@ -75,7 +75,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user_profile = self.request.user
-        queryset = self.queryset.filter(profile=user_profile)
+        queryset = self.queryset.filter(profile=user_profile).select_related(
+            'category', 'bank_account', 'credit_card'
+        )
 
         issue_date_start = self.request.query_params.get('issue_date_start')
         if issue_date_start:
