@@ -15,7 +15,7 @@ CELERY_FLOWER_PASSWORD=debug
 
 DJANGO_ADMIN_URL=/admin/
 
-DATABASE_URL=postgresql://debug:debug@localhost:5432/poupeai_db
+DATABASE_URL=postgresql://debug:debug@localhost:5432/poupeai_finance_db
 
 KEYCLOAK_REALM_NAME="poupe-ai"
 KEYCLOAK_SERVER_URL="http://keycloak:8080/"

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import environ
 
-#from dotenv import load_dotenv
-#load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # poupeai_finance_service/
@@ -89,6 +89,7 @@ LOCAL_APPS = [
     "poupeai_finance_service.goals",
     "poupeai_finance_service.transactions",
     "poupeai_finance_service.profiles",
+    "poupeai_finance_service.dashboard",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -458,3 +459,8 @@ KEYCLOAK_JWKS_URL = env("KEYCLOAK_JWKS_URL", default="http://keycloak:8080/realm
 # Admin Client Credentials
 KEYCLOAK_ADMIN_CLIENT_ID = env("KEYCLOAK_ADMIN_CLIENT_ID", default="poupe-ai-backend")
 KEYCLOAK_ADMIN_CLIENT_SECRET = env("KEYCLOAK_ADMIN_CLIENT_SECRET", default="client-secret")
+
+# Reports Service Configuration
+REPORTS_SERVICE_URL = env("REPORTS_SERVICE_URL", default="http://reports-service:8081/api/v1")
+
+
