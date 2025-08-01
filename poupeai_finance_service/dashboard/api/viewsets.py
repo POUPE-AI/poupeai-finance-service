@@ -75,7 +75,7 @@ class DashboardView(APIView):
         invoices_summary = get_invoices_summary(profile, start.year, start.month)
 
 
-        estimated_saving = fetch_savings_estimate(profile.id, Transaction.objects.filter(profile=profile))
+        estimated_saving = fetch_savings_estimate(profile.user_id, Transaction.objects.filter(profile=profile))
 
         return Response({
             "message": "Dashboard data retrieved successfully.",
