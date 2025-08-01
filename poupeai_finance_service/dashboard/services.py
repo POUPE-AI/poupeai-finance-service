@@ -144,7 +144,7 @@ def get_invoices_summary(profile, year, month):
         percent_diff = ((total_amount - prev_total_amount) / abs(prev_total_amount)) * 100
 
     return {
-        "total": total_amount,
+        "current_total": total_amount,
         "difference": percent_diff,
         "chart_data": invoices_data
     }

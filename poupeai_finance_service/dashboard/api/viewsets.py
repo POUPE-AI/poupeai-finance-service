@@ -39,19 +39,21 @@ class DashboardView(APIView):
             try:
                 year, month = map(int, period.split('-'))
                 start = datetime(year, month, 1, tzinfo=timezone.get_current_timezone())
+                # Fim do mês
+                if month == 12:
+                    end = start.replace(year=start.year+1, month=1)
+                else:
+                    end = start.replace(month=start.month+1)
             except Exception:
                 return Response({'error': 'Invalid yyyy-mm format.'}, status=400)
         else:
-            start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            period = start.strftime('%Y-%m')
-        
+            # Últimos 30 dias
+            end = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            start = end - timezone.timedelta(days=29)
+            period = None
+
         if start > timezone.now():
             return Response({'error': 'The specified period cannot be in the future.'}, status=400)
-        
-        if start.month == 12:
-            end = start.replace(year=start.year+1, month=1)
-        else:
-            end = start.replace(month=start.month+1)
         
         # Get the profile of the authenticated user
         profile = self.request.user
@@ -74,13 +76,12 @@ class DashboardView(APIView):
         expenses_summary = get_category_summary(profile, bank_accounts, 'expense', start, end)
         invoices_summary = get_invoices_summary(profile, start.year, start.month)
 
-
         estimated_saving = fetch_savings_estimate(profile.user_id, Transaction.objects.filter(profile=profile))
 
         return Response({
             "message": "Dashboard data retrieved successfully.",
-            "start_date": start.isoformat() if period else None,
-            "end_date": ((start.replace(day=1) + timezone.timedelta(days=31)).replace(day=1) - timezone.timedelta(days=1)).isoformat() if period else None,
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
             "balance": {
                 "current_total": current_balance,
                 "difference": balance_difference,
