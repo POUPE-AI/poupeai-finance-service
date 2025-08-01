@@ -47,9 +47,9 @@ class DashboardView(APIView):
             except Exception:
                 return Response({'error': 'Invalid yyyy-mm format.'}, status=400)
         else:
-            # Últimos 30 dias
-            end = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            start = end - timezone.timedelta(days=29)
+            # Últimos 30 dias, incluindo hoje
+            end = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
+            start = end - timezone.timedelta(days=30)
             period = None
 
         if start > timezone.now():
@@ -81,7 +81,7 @@ class DashboardView(APIView):
         return Response({
             "message": "Dashboard data retrieved successfully.",
             "start_date": start.isoformat(),
-            "end_date": end.isoformat(),
+            "end_date": (end - timezone.timedelta(days=1)).isoformat(),
             "balance": {
                 "current_total": current_balance,
                 "difference": balance_difference,
