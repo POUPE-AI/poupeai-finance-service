@@ -8,6 +8,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from poupeai_finance_service.bank_accounts.models import BankAccount
+from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 from poupeai_finance_service.transactions.models import Transaction
 
 from poupeai_finance_service.dashboard.services import (
@@ -22,7 +23,7 @@ from poupeai_finance_service.dashboard.services import (
 from poupeai_finance_service.dashboard.tools import get_difference_in_percent
 
 class DashboardView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsProfileActive, IsAuthenticated]
     
     @extend_schema(
         tags=['Dashboard'],

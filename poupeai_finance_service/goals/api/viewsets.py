@@ -171,6 +171,7 @@ class GoalViewSet(viewsets.ModelViewSet):
         ]
     ),
 )
+
 class GoalDepositViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = GoalDepositSerializer
     permission_classes = [IsProfileActive, IsAuthenticated]

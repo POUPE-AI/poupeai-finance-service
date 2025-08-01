@@ -18,6 +18,7 @@ from poupeai_finance_service.transactions.api.serializers import (
     TransactionDetailSerializer,
     TransactionListSerializer,
 )
+from poupeai_finance_service.profiles.api.permissions import IsProfileActive
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.transactions.services import TransactionService
 
@@ -58,7 +59,7 @@ log = structlog.get_logger(__name__)
 
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
-    permission_classes = [IsAuthenticated, IsOwnerProfile]
+    permission_classes = [IsProfileActive, IsAuthenticated, IsOwnerProfile]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     filterset_fields = ['purchase_group_uuid', 'category', 'source_type', 'type']
     search_fields = ['description', 'original_purchase_description', 'original_statement_description']
