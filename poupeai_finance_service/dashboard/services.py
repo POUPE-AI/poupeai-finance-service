@@ -6,6 +6,8 @@ from datetime import datetime, date, timedelta
 from django.utils import timezone
 from django.db import models
 
+from decimal import Decimal
+
 from django.conf import settings
 from collections import defaultdict
 import requests
@@ -45,32 +47,28 @@ def get_transactions_by_period(profile, start, end):
 
 def get_chart_data(incomes, expenses, start, end, initial_balance):
     chart_data = []
-    current_balance = initial_balance # Este é o balanço antes do período 'start'
+    current_balance = initial_balance # Este já deve ser um Decimal, ou converta-o: Decimal(initial_balance)
 
-    # Criamos um defaultdict para agrupar as transações por data eficientemente
-    daily_totals = defaultdict(lambda: {'incomes': 0.0, 'expenses': 0.0})
+    daily_totals = defaultdict(lambda: {'incomes': Decimal('0.0'), 'expenses': Decimal('0.0')}) # <--- ALTEARADO AQUI
 
     for income in incomes:
-        daily_totals[income.issue_date.isoformat()]['incomes'] += float(income.amount)
+        daily_totals[income.issue_date.isoformat()]['incomes'] += income.amount # <--- ALTEARADO AQUI (remove float())
     for expense in expenses:
-        daily_totals[expense.issue_date.isoformat()]['expenses'] += float(expense.amount)
+        daily_totals[expense.issue_date.isoformat()]['expenses'] += expense.amount # <--- ALTEARADO AQUI (remove float())
 
-    # Iterar por cada dia do período (inclusive o 'start', exclusivo o 'end')
-    # O range deve ser de 0 até (dias_no_periodo - 1)
     for i in range((end - start).days):
-        day = start + timezone.timedelta(days=i) # Começa do 'start' e avança dia a dia
+        day = start + timezone.timedelta(days=i)
         day_str = day.date().isoformat()
 
-        # Obtenha as transações para o dia atual
         day_incomes = daily_totals[day_str]['incomes']
         day_expenses = daily_totals[day_str]['expenses']
-
-        # Atualize o balanço acumulado
+        
+        # Agora todos são Decimal, a operação é válida
         current_balance += day_incomes - day_expenses
 
         chart_data.append({
             "date": day_str,
-            "balance": float(current_balance),
+            "balance": float(current_balance), # Convertemos para float APENAS na saída, se necessário
         })
     return chart_data, current_balance
 
