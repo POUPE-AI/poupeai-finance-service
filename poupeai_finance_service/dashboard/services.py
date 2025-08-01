@@ -16,12 +16,12 @@ def get_initial_balance_until(profile, bank_accounts, until_date):
     incomes = Transaction.objects.filter(
         profile=profile,
         type='income',
-        transaction_date__lt=until_date
+        issue_date__lt=until_date
     ).aggregate(total=models.Sum('amount'))['total'] or 0
     expenses = Transaction.objects.filter(
         profile=profile,
         type='expense',
-        transaction_date__lt=until_date
+        issue_date__lt=until_date
     ).aggregate(total=models.Sum('amount'))['total'] or 0
     return initial_balance + incomes - expenses
 
@@ -29,14 +29,14 @@ def get_transactions_by_period(profile, start, end):
     incomes = Transaction.objects.filter(
         profile=profile,
         type='income',
-        transaction_date__gte=start,
-        transaction_date__lt=end
+        issue_date__gte=start,
+        issue_date__lt=end
     )
     expenses = Transaction.objects.filter(
         profile=profile,
         type='expense',
-        transaction_date__gte=start,
-        transaction_date__lt=end
+        issue_date__gte=start,
+        issue_date__lt=end
     )
     return incomes, expenses
 
@@ -45,8 +45,8 @@ def get_chart_data(incomes, expenses, start, end, initial_balance):
     current_balance = initial_balance
     for i in range((end - start).days):
         day = start + timezone.timedelta(days=i)
-        day_incomes = incomes.filter(transaction_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
-        day_expenses = expenses.filter(transaction_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_incomes = incomes.filter(issue_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_expenses = expenses.filter(issue_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
         current_balance += day_incomes - day_expenses
         chart_data.append({
             "date": day.date().isoformat(),
@@ -61,7 +61,7 @@ def get_category_chart_data(queryset, start, end):
     chart_data = []
     for i in range((end - start).days):
         day = start + timezone.timedelta(days=i)
-        day_total = queryset.filter(transaction_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_total = queryset.filter(issue_date=day.date()).aggregate(total=models.Sum('amount'))['total'] or 0
         chart_data.append({
             "date": day.date().isoformat(),
             "total": float(day_total),
@@ -76,8 +76,8 @@ def get_category_summary(profile, bank_accounts, category_type, start, end):
     queryset = Transaction.objects.filter(
         profile=profile,
         type=category_type,
-        transaction_date__gte=start,
-        transaction_date__lt=end
+        issue_date__gte=start,
+        issue_date__lt=end
     )
     current_total = queryset.aggregate(total=models.Sum('amount'))['total'] or 0
 
@@ -85,7 +85,7 @@ def get_category_summary(profile, bank_accounts, category_type, start, end):
     prev_total = Transaction.objects.filter(
         profile=profile,
         type=category_type,
-        transaction_date__lt=start
+        issue_date__lt=start
     ).aggregate(total=models.Sum('amount'))['total'] or 0
 
     # Diferença percentual
@@ -149,7 +149,7 @@ def get_invoices_summary(profile, year, month):
         "chart_data": invoices_data
     }
 
-def fetch_savings_estimate(profile, account_id, transactions_queryset):
+def fetch_savings_estimate(account_id, transactions_queryset):
     """
     Estima a economia mensal com base nas transações de receita e despesa.
     """
@@ -158,7 +158,7 @@ def fetch_savings_estimate(profile, account_id, transactions_queryset):
     first_day_3_months_ago = first_day_3_months_ago.replace(day=1)
     
     transactions = transactions_queryset.filter(
-        transaction_date__gte=first_day_3_months_ago
+        issue_date=first_day_3_months_ago
     )
 
     if len(transactions) == 0:
@@ -170,7 +170,7 @@ def fetch_savings_estimate(profile, account_id, transactions_queryset):
             "id": t.id,
             "description": t.description,
             "amount": float(t.amount),
-            "date": t.transaction_date.isoformat(),
+            "date": t.issue_date.isoformat(),
             "category": t.category.name if hasattr(t, "category") and t.category else "",
             "type": t.type,
         })
