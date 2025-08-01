@@ -16,7 +16,7 @@ log = structlog.get_logger(__name__)
 
 class ProfileViewSet(viewsets.GenericViewSet):
     serializer_class = ProfileSerializer
-    permission_classes = [IsProfileActive, IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def get_object(self):
         return self.request.user
