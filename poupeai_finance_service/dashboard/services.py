@@ -41,36 +41,28 @@ def get_transactions_by_period(profile, start, end):
     return incomes, expenses
 
 def get_chart_data(incomes, expenses, start, end, initial_balance):
-    """
-    Gera dados diários de saldo, incluindo todos os dias do intervalo [start, end).
-    """
     chart_data = []
     current_balance = initial_balance
     for i in range((end - start).days):
         day = start + timezone.timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timezone.timedelta(days=1)
-        day_incomes = incomes.filter(issue_date__gte=day_start, issue_date__lt=day_end).aggregate(total=models.Sum('amount'))['total'] or 0
-        day_expenses = expenses.filter(issue_date__gte=day_start, issue_date__lt=day_end).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_str = day.date().isoformat()  # 'YYYY-MM-DD'
+        day_incomes = incomes.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_expenses = expenses.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
         current_balance += day_incomes - day_expenses
         chart_data.append({
-            "date": day.date().isoformat(),
+            "date": day_str,
             "balance": float(current_balance),
         })
     return chart_data, current_balance
 
 def get_category_chart_data(queryset, start, end):
-    """
-    Gera dados diários para receitas ou despesas, incluindo todos os dias do intervalo [start, end).
-    """
     chart_data = []
     for i in range((end - start).days):
         day = start + timezone.timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timezone.timedelta(days=1)
-        day_total = queryset.filter(issue_date__gte=day_start, issue_date__lt=day_end).aggregate(total=models.Sum('amount'))['total'] or 0
+        day_str = day.date().isoformat()  # 'YYYY-MM-DD'
+        day_total = queryset.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
         chart_data.append({
-            "date": day.date().isoformat(),
+            "date": day_str,
             "total": float(day_total),
         })
     return chart_data
