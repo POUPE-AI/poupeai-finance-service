@@ -8,6 +8,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from poupeai_finance_service.bank_accounts.models import BankAccount
+from poupeai_finance_service.transactions.models import Transaction
 
 from poupeai_finance_service.dashboard.services import (
     get_transactions_by_period,
@@ -73,7 +74,8 @@ class DashboardView(APIView):
         expenses_summary = get_category_summary(profile, bank_accounts, 'expense', start, end)
         invoices_summary = get_invoices_summary(profile, start.year, start.month)
 
-        estimated_saving = fetch_savings_estimate(profile, start.year, start.month)
+
+        estimated_saving = fetch_savings_estimate(profile.id, Transaction.objects.filter(profile=profile))
 
         return Response({
             "message": "Dashboard data retrieved successfully.",
