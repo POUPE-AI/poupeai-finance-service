@@ -47,39 +47,40 @@ def get_transactions_by_period(profile, start, end):
 
 def get_chart_data(incomes, expenses, start, end, initial_balance):
     chart_data = []
-    current_balance = initial_balance # Este já deve ser um Decimal, ou converta-o: Decimal(initial_balance)
+    current_balance = initial_balance 
 
-    daily_totals = defaultdict(lambda: {'incomes': Decimal('0.0'), 'expenses': Decimal('0.0')}) # <--- ALTEARADO AQUI
+    daily_totals = defaultdict(lambda: {'incomes': Decimal('0.0'), 'expenses': Decimal('0.0')})
 
+    # Certifique-se de que os objetos incomes e expenses sejam QuerySets
+    # Iterar sobre QuerySet para agrupar por data (já está ok como amount é Decimal)
     for income in incomes:
-        daily_totals[income.issue_date.isoformat()]['incomes'] += income.amount # <--- ALTEARADO AQUI (remove float())
+        daily_totals[income.issue_date.isoformat()]['incomes'] += income.amount 
     for expense in expenses:
-        daily_totals[expense.issue_date.isoformat()]['expenses'] += expense.amount # <--- ALTEARADO AQUI (remove float())
+        daily_totals[expense.issue_date.isoformat()]['expenses'] += expense.amount 
 
-    for i in range((end - start).days):
+    # Iterar sobre cada dia do período. Agora 'start' e 'end' são objetos date.
+    for i in range((end - start).days): 
         day = start + timezone.timedelta(days=i)
-        day_str = day.date().isoformat()
-
+        day_str = day.isoformat() # Usar isoformat direto do objeto date
+        
         day_incomes = daily_totals[day_str]['incomes']
         day_expenses = daily_totals[day_str]['expenses']
         
-        # Agora todos são Decimal, a operação é válida
         current_balance += day_incomes - day_expenses
 
         chart_data.append({
             "date": day_str,
-            "balance": float(current_balance), # Convertemos para float APENAS na saída, se necessário
+            "balance": float(current_balance),
         })
     return chart_data, current_balance
 
 def get_category_chart_data(queryset, start, end):
     chart_data = []
-    # Iterar por cada dia do período (inclusive o 'start', exclusivo o 'end')
-    # O range deve ser de 0 até (dias_no_periodo - 1)
     for i in range((end - start).days):
-        day = start + timezone.timedelta(days=i) # Já está correto
-        day_str = day.date().isoformat()
-        day_total = queryset.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
+        day = start + timezone.timedelta(days=i)
+        day_str = day.isoformat() # Usar isoformat direto do objeto date
+        # O queryset já vem filtrado pelo período. Agora filtramos por objeto date.
+        day_total = queryset.filter(issue_date=day).aggregate(total=models.Sum('amount'))['total'] or Decimal('0.0') # <--- ALTEARADO AQUI (day e Decimal)
         chart_data.append({
             "date": day_str,
             "total": float(day_total),
