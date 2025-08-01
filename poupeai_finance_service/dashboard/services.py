@@ -10,18 +10,19 @@ from django.conf import settings
 from collections import defaultdict
 import requests
 
-
 def get_initial_balance_until(profile, bank_accounts, until_date):
     initial_balance = sum([account.initial_balance for account in bank_accounts])
     incomes = Transaction.objects.filter(
         profile=profile,
         type='income',
-        issue_date__lt=until_date
+        issue_date__lt=until_date,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     ).aggregate(total=models.Sum('amount'))['total'] or 0
     expenses = Transaction.objects.filter(
         profile=profile,
         type='expense',
-        issue_date__lt=until_date
+        issue_date__lt=until_date,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     ).aggregate(total=models.Sum('amount'))['total'] or 0
     return initial_balance + incomes - expenses
 
@@ -30,25 +31,43 @@ def get_transactions_by_period(profile, start, end):
         profile=profile,
         type='income',
         issue_date__gte=start,
-        issue_date__lt=end
+        issue_date__lt=end,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     )
     expenses = Transaction.objects.filter(
         profile=profile,
         type='expense',
         issue_date__gte=start,
-        issue_date__lt=end
+        issue_date__lt=end,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     )
     return incomes, expenses
 
 def get_chart_data(incomes, expenses, start, end, initial_balance):
     chart_data = []
-    current_balance = initial_balance
+    current_balance = initial_balance # Este é o balanço antes do período 'start'
+
+    # Criamos um defaultdict para agrupar as transações por data eficientemente
+    daily_totals = defaultdict(lambda: {'incomes': 0.0, 'expenses': 0.0})
+
+    for income in incomes:
+        daily_totals[income.issue_date.isoformat()]['incomes'] += float(income.amount)
+    for expense in expenses:
+        daily_totals[expense.issue_date.isoformat()]['expenses'] += float(expense.amount)
+
+    # Iterar por cada dia do período (inclusive o 'start', exclusivo o 'end')
+    # O range deve ser de 0 até (dias_no_periodo - 1)
     for i in range((end - start).days):
-        day = start + timezone.timedelta(days=i)
-        day_str = day.date().isoformat()  # 'YYYY-MM-DD'
-        day_incomes = incomes.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
-        day_expenses = expenses.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
+        day = start + timezone.timedelta(days=i) # Começa do 'start' e avança dia a dia
+        day_str = day.date().isoformat()
+
+        # Obtenha as transações para o dia atual
+        day_incomes = daily_totals[day_str]['incomes']
+        day_expenses = daily_totals[day_str]['expenses']
+
+        # Atualize o balanço acumulado
         current_balance += day_incomes - day_expenses
+
         chart_data.append({
             "date": day_str,
             "balance": float(current_balance),
@@ -57,9 +76,11 @@ def get_chart_data(incomes, expenses, start, end, initial_balance):
 
 def get_category_chart_data(queryset, start, end):
     chart_data = []
+    # Iterar por cada dia do período (inclusive o 'start', exclusivo o 'end')
+    # O range deve ser de 0 até (dias_no_periodo - 1)
     for i in range((end - start).days):
-        day = start + timezone.timedelta(days=i)
-        day_str = day.date().isoformat()  # 'YYYY-MM-DD'
+        day = start + timezone.timedelta(days=i) # Já está correto
+        day_str = day.date().isoformat()
         day_total = queryset.filter(issue_date=day_str).aggregate(total=models.Sum('amount'))['total'] or 0
         chart_data.append({
             "date": day_str,
@@ -76,15 +97,21 @@ def get_category_summary(profile, bank_accounts, category_type, start, end):
         profile=profile,
         type=category_type,
         issue_date__gte=start,
-        issue_date__lt=end
+        issue_date__lt=end,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     )
     current_total = queryset.aggregate(total=models.Sum('amount'))['total'] or 0
 
     # Transações do período anterior
+    # Importante: o cálculo da diferença percentual está comparando o total atual
+    # com o *total acumulado até o início do período atual*. Se você deseja
+    # comparar com o total do *período imediatamente anterior*, esta lógica precisaria ser alterada.
+    # Por ora, mantemos o filtro source_type.
     prev_total = Transaction.objects.filter(
         profile=profile,
         type=category_type,
-        issue_date__lt=start
+        issue_date__lt=start,
+        source_type='BANK_ACCOUNT' # Adicionado filtro
     ).aggregate(total=models.Sum('amount'))['total'] or 0
 
     # Diferença percentual
