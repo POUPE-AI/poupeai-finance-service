@@ -30,6 +30,23 @@ class GoalValidationMixin:
         profile = validated_data.get('profile')
         if not isinstance(profile, Profile):
              raise DRFValidationError({'profile': _("Profile context not provided correctly for creation.")})
+    
+    def _validate_name(self, validated_data):
+        profile = validated_data.get('profile')
+        name = validated_data.get('name')
+        if Goal.objects.filter(profile=profile, name=name).exists():
+            raise DRFValidationError(_("A goal with this name already exists for this profile."))
+    
+    def _validate_name_update(self, validated_data):
+        profile = validated_data.get('profile')
+        name = validated_data.get('name')
+        qs = Goal.objects.filter(profile=profile, name=name)
+        
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+            
+        if qs.exists():
+            raise DRFValidationError(_("A goal with this name already exists for this profile."))
         
 class GoalListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,6 +67,7 @@ class GoalCreateSerializer(GoalValidationMixin, serializers.ModelSerializer):
 
         self._validate_target_at(data)
         self._validate_initial_balance(data)
+        self._validate_name(data)
         return data
         
     def create(self, validated_data):
@@ -65,6 +83,7 @@ class GoalUpdateSerializer(GoalValidationMixin, serializers.ModelSerializer):
     def validate(self, data):
         self._validate_target_at(data)
         self._validate_initial_balance(data)
+        self._validate_name_update(data)
         return data
 
 class GoalDetailSerializer(serializers.ModelSerializer):
