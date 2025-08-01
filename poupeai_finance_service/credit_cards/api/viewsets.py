@@ -59,7 +59,7 @@ log = structlog.get_logger(__name__)
 class CreditCardViewSet(ModelViewSet):
     queryset = CreditCard.objects.all()
     serializer_class = CreditCardSerializer
-    permission_classes = [IsAuthenticated, IsProfileActive]
+    permission_classes = [IsProfileActive, IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
