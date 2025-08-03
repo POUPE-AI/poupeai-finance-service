@@ -47,6 +47,7 @@ class AuditMiddleware:
                     "path": request.path,
                     "status_code": response.status_code,
                 },
+                "data": request.data if hasattr(request, 'data') else {},
                 "duration_ms": round(duration_ms, 2)
             }
         )
