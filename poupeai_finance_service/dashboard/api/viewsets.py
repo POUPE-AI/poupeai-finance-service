@@ -81,7 +81,16 @@ class DashboardView(APIView):
         # Para get_invoices_summary, passe o ano e mês do start_dt
         invoices_summary = get_invoices_summary(profile, start_dt.year, start_dt.month)
 
-        estimated_saving = fetch_savings_estimate(profile.user_id, Transaction.objects.filter(profile=profile))
+        access_token = request.auth
+    
+        if not access_token:
+            return Response({'error': 'Authentication token not found.'}, status=401)
+
+        estimated_saving = fetch_savings_estimate(
+            profile.user_id, 
+            Transaction.objects.filter(profile=profile),
+            access_token
+        )
 
         return Response({
             "message": "Dashboard data retrieved successfully.",

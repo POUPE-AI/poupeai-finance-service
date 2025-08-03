@@ -39,8 +39,6 @@ class AuditMiddleware:
 
         duration_ms = (time.monotonic() - start_time) * 1000
 
-        request_payload = self._get_request_payload(request)
-
         log.info(
             "Request completed successfully",
             event_type=EventType.REQUEST_COMPLETED,
@@ -50,7 +48,6 @@ class AuditMiddleware:
                     "path": request.path,
                     "status_code": response.status_code,
                 },
-                "data": request_payload,
                 "duration_ms": round(duration_ms, 2)
             }
         )

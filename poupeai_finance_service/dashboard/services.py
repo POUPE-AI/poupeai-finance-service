@@ -194,7 +194,7 @@ def get_invoices_summary(profile, year, month):
         "chart_data": invoices_data
     }
 
-def fetch_savings_estimate(account_id, transactions_queryset):
+def fetch_savings_estimate(account_id, transactions_queryset, access_token):
     """
     Estima a economia mensal com base nas transações de receita e despesa.
     """
@@ -227,9 +227,13 @@ def fetch_savings_estimate(account_id, transactions_queryset):
         "transactions": tx_list,
     }
 
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
     url = f"{settings.REPORTS_SERVICE_URL}/savings/estimate"
     try:
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
