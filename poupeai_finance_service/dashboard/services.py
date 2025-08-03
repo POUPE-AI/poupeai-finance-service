@@ -1,16 +1,23 @@
+import structlog
+
 from poupeai_finance_service.transactions.models import Transaction
 from poupeai_finance_service.credit_cards.models import CreditCard, Invoice
 
-from datetime import datetime, date, timedelta
+from datetime import date
+from dateutil.relativedelta import relativedelta
 
 from django.utils import timezone
 from django.db import models
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from decimal import Decimal
 
 from django.conf import settings
 from collections import defaultdict
 import requests
+
+log = structlog.get_logger(__name__)
 
 def get_initial_balance_until(profile, bank_accounts, until_date):
     initial_balance = sum([account.initial_balance for account in bank_accounts])
@@ -136,52 +143,54 @@ def get_invoices_summary(profile, year, month):
         prev_year, prev_month = year - 1, 12
     else:
         prev_year, prev_month = year, month - 1
+        
+    total_annotation = Coalesce(Sum('transactions__amount'), Decimal('0.0'))
 
     current_month_prefetch = models.Prefetch(
         'invoices',
-        queryset=Invoice.objects.filter(year=year, month=month),
+        queryset=Invoice.objects.filter(year=year, month=month).annotate(total=total_annotation),
         to_attr='current_invoices'
     )
     
     previous_month_prefetch = models.Prefetch(
         'invoices',
-        queryset=Invoice.objects.filter(year=prev_year, month=prev_month),
+        queryset=Invoice.objects.filter(year=prev_year, month=prev_month).annotate(total=total_annotation),
         to_attr='previous_invoices'
     )
 
-    cards = CreditCard.objects.filter(profile=profile).prefetch_related(current_month_prefetch, previous_month_prefetch)
+    cards = CreditCard.objects.filter(profile=profile).prefetch_related(
+        current_month_prefetch, previous_month_prefetch
+    )
 
     invoices_data = []
-    total_amount = 0.0
-    prev_total_amount = 0.0
+    total_amount = Decimal('0.0')
+    prev_total_amount = Decimal('0.0')
 
     for card in cards:
-        # Fatura atual
         current_invoice = card.current_invoices[0] if card.current_invoices else None
-        current_amount = float(current_invoice.total_amount) if current_invoice else 0.0
+        current_amount = current_invoice.total if current_invoice else Decimal('0.0')
         total_amount += current_amount
 
-        # Fatura anterior
         previous_invoice = card.previous_invoices[0] if card.previous_invoices else None
-        previous_amount = float(previous_invoice.total_amount) if previous_invoice else 0.0
+        previous_amount = previous_invoice.total if previous_invoice else Decimal('0.0')
         prev_total_amount += previous_amount
 
         invoices_data.append({
             "credit_card": card.name,
             "month": f"{month:02d}/{year}",
-            "total_amount": current_amount,
+            "total_amount": float(current_amount),
             "paid": current_invoice.is_paid if current_invoice else False,
             "due_date": current_invoice.due_date.isoformat() if current_invoice and current_invoice.due_date else None,
         })
 
     if prev_total_amount == 0:
-        percent_diff = 100.0 if total_amount > 0 else -100.0 if total_amount < 0 else 0.0
+        percent_diff = 100.0 if total_amount > 0 else 0.0
     else:
-        percent_diff = ((total_amount - prev_total_amount) / abs(prev_total_amount)) * 100
+        percent_diff = float(((total_amount - prev_total_amount) / abs(prev_total_amount)) * 100)
 
     return {
-        "current_total": total_amount,
-        "difference": percent_diff,
+        "current_total": float(total_amount),
+        "difference": round(percent_diff, 2),
         "chart_data": invoices_data
     }
 
@@ -190,14 +199,14 @@ def fetch_savings_estimate(account_id, transactions_queryset):
     Estima a economia mensal com base nas transações de receita e despesa.
     """
     today = date.today()
-    first_day_3_months_ago = (today.replace(day=1) - timedelta(days=1)).replace(day=1) - timedelta(days=1)
-    first_day_3_months_ago = first_day_3_months_ago.replace(day=1)
+    start_date = today.replace(day=1) - relativedelta(months=3)
     
-    transactions = transactions_queryset.filter(
-        issue_date=first_day_3_months_ago
+    transactions = transactions_queryset.prefetch_related("category").filter(
+        issue_date__gte=start_date,
+        issue_date__lte=today
     )
 
-    if len(transactions) == 0:
+    if not transactions.exists():
         return 0.0
 
     tx_list = []
@@ -213,7 +222,7 @@ def fetch_savings_estimate(account_id, transactions_queryset):
 
     payload = {
         "accountId": str(account_id),
-        "startDate": first_day_3_months_ago.isoformat(),
+        "startDate": start_date.isoformat(),
         "endDate": today.isoformat(),
         "transactions": tx_list,
     }
@@ -223,7 +232,23 @@ def fetch_savings_estimate(account_id, transactions_queryset):
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
         return response.json()
-    except Exception as e:
-        # Logue o erro conforme seu padrão
-        print(f"Erro ao requisitar savings estimate: {e}")
+    except requests.exceptions.RequestException as e:
+        log.error(
+            "Savings estimate request failed",
+            event_type="SAVINGS_ESTIMATE_REQUEST_FAILED",
+            event_details={
+                "account_id": str(account_id),
+                "request_url": url,
+                "reason": str(e)
+            },
+            exc_info=e
+        )
+        return 0.0
+    except ValueError as e:
+        log.error(
+            "Invalid response from savings estimate service",
+            event_type="SAVINGS_ESTIMATE_INVALID_RESPONSE",
+            event_details={"account_id": str(account_id), "request_url": url},
+            exc_info=e
+        )
         return 0.0
