@@ -132,37 +132,48 @@ def get_invoices_summary(profile, year, month):
     """
     Retorna para cada cartão o valor da fatura do mês/ano, o total do mês e a diferença percentual do mês anterior.
     """
-    cards = CreditCard.objects.filter(profile=profile)
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+
+    current_month_prefetch = models.Prefetch(
+        'invoices',
+        queryset=Invoice.objects.filter(year=year, month=month),
+        to_attr='current_invoices'
+    )
+    
+    previous_month_prefetch = models.Prefetch(
+        'invoices',
+        queryset=Invoice.objects.filter(year=prev_year, month=prev_month),
+        to_attr='previous_invoices'
+    )
+
+    cards = CreditCard.objects.filter(profile=profile).prefetch_related(current_month_prefetch, previous_month_prefetch)
+
     invoices_data = []
     total_amount = 0.0
+    prev_total_amount = 0.0
 
-    # Faturas do mês atual
     for card in cards:
-        invoice = Invoice.objects.filter(credit_card=card, year=year, month=month).first()
-        amount = float(invoice.total_amount) if invoice else 0.0
-        total_amount += amount
+        # Fatura atual
+        current_invoice = card.current_invoices[0] if card.current_invoices else None
+        current_amount = float(current_invoice.total_amount) if current_invoice else 0.0
+        total_amount += current_amount
+
+        # Fatura anterior
+        previous_invoice = card.previous_invoices[0] if card.previous_invoices else None
+        previous_amount = float(previous_invoice.total_amount) if previous_invoice else 0.0
+        prev_total_amount += previous_amount
+
         invoices_data.append({
             "credit_card": card.name,
             "month": f"{month:02d}/{year}",
-            "total_amount": amount,
-            "paid": invoice.paid if invoice else False,
-            "due_date": invoice.due_date.isoformat() if invoice and invoice.due_date else None,
+            "total_amount": current_amount,
+            "paid": current_invoice.is_paid if current_invoice else False,
+            "due_date": current_invoice.due_date.isoformat() if current_invoice and current_invoice.due_date else None,
         })
 
-    # Faturas do mês anterior
-    if month == 1:
-        prev_year = year - 1
-        prev_month = 12
-    else:
-        prev_year = year
-        prev_month = month - 1
-
-    prev_total_amount = 0.0
-    for card in cards:
-        invoice = Invoice.objects.filter(credit_card=card, year=prev_year, month=prev_month).first()
-        prev_total_amount += float(invoice.total_amount) if invoice else 0.0
-
-    # Diferença percentual
     if prev_total_amount == 0:
         percent_diff = 100.0 if total_amount > 0 else -100.0 if total_amount < 0 else 0.0
     else:
