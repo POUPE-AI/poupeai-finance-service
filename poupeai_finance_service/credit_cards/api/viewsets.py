@@ -208,7 +208,14 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
             payment_date = serializer.validated_data['payment_date']
 
             with transaction.atomic():
-                invoice.pay(bank_account=bank_account, payment_date=payment_date)
+                invoice.bank_account = bank_account
+                invoice.payment_date = payment_date
+                invoice.save()
+
+                invoice.transactions.update(
+                    bank_account=bank_account,
+                    payment_date=payment_date
+                )
             
             log.info(
                 "Invoice paid successfully",
@@ -237,7 +244,13 @@ class InvoiceViewSet(mixins.RetrieveModelMixin,
         
         try:
             with transaction.atomic():
-                invoice.reopen()
+                invoice.bank_account = None
+                invoice.payment_date = None
+                invoice.save()
+                invoice.transactions.update(
+                    bank_account=None,
+                    payment_date=None
+                )
             
             log.info(
                 "Invoice reopened successfully",
