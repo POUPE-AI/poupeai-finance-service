@@ -206,8 +206,12 @@ def fetch_savings_estimate(account_id, transactions_queryset, access_token):
         issue_date__lte=today
     )
 
-    if not transactions.exists():
-        return 0.0
+    if len(transactions) == 0:
+        return {
+            "estimated_savings": 0,
+            "savings_percentage": 0,
+            "message": f"Não há transações no período atual.",
+        }
 
     tx_list = []
     for t in transactions:
