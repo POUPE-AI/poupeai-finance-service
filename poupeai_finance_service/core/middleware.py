@@ -1,5 +1,6 @@
 import time
 import uuid
+import json
 import structlog
 from django.conf import settings
 from poupeai_finance_service.core.events import EventType
@@ -52,6 +53,18 @@ class AuditMiddleware:
         )
         
         return response
+
+    def _get_request_payload(self, request):
+        if hasattr(request, 'data'):
+            return request.data
+
+        try:
+            if request.body:
+                return json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return {"error": "Could not parse request body."}
+        
+        return {}
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
