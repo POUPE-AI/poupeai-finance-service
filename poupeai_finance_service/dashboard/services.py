@@ -186,7 +186,11 @@ def fetch_savings_estimate(account_id, transactions_queryset):
     )
 
     if len(transactions) == 0:
-        return 0.0
+        return {
+            "estimated_savings": 0,
+            "savings_percentage": 0,
+            "message": f"Não há transações no período atual.",
+        }
 
     tx_list = []
     for t in transactions:
