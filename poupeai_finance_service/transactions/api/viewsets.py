@@ -201,5 +201,5 @@ class TransactionViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        deletion_option = self.request.data.get('deletion_option', 'CURRENT_ONLY')
+        deletion_option = self.request.data.get('deletion_option', 'CURRENT_AND_FUTURE')
         TransactionService.delete_transaction(instance, deletion_option)
