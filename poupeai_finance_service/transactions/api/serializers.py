@@ -200,7 +200,7 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
             raise serializers.ValidationError(e.message_dict)
 
     def update(self, instance, validated_data):
-        apply_to_all_installments = validated_data.pop('apply_to_all_installments', False)
+        apply_to_all_installments = validated_data.pop('apply_to_all_installments', True)
 
         try:
             return TransactionService.update_transaction(instance, validated_data, apply_to_all_installments)
