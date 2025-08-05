@@ -2,7 +2,7 @@ name: CI/CD para Poupe.AI Finance Service
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
 
 env:
   IMAGE_NAME: franciscopaulinoq/poupeai-finance-service
