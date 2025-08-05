@@ -206,57 +206,127 @@ def fetch_savings_estimate(account_id, transactions_queryset, access_token):
         issue_date__lte=today
     )
 
-    if len(transactions) == 0:
+    if not transactions.exists():
         return {
-            "estimated_savings": 0,
-            "savings_percentage": 0,
-            "message": f"Não há transações no período atual.",
+            "estimated_savings": 0.0,
+            "savings_percentage": 0.0,
+            "message": "Não há transações recentes para calcular a economia.",
+            "comparison_period": "monthly"
+        }
+    
+    end_current_period = today.replace(day=1) - relativedelta(days=1)
+    start_current_period = end_current_period.replace(day=1)
+
+    end_previous_period = start_current_period - relativedelta(days=1)
+    start_previous_period = end_previous_period.replace(day=1)
+
+    current_period_expenses = 0.0
+    previous_period_expenses = 0.0
+
+    for t in transactions:
+        if t.type == 'expense':
+            amount = float(t.amount)
+            if start_current_period <= t.issue_date <= end_current_period:
+                current_period_expenses += amount
+            elif start_previous_period <= t.issue_date <= end_previous_period:
+                previous_period_expenses += amount
+    
+    if previous_period_expenses == 0:
+        log.warning(f"Análise de economia para conta {account_id} não pôde ser feita. "
+                    f"Faltam dados de despesa no período de {start_previous_period.isoformat()} "
+                    f"a {end_previous_period.isoformat()}.")
+        return {
+            "estimated_savings": 0.0,
+            "savings_percentage": 0.0,
+            "message": "Não foi possível calcular a economia pois não há dados de despesas do mês retrasado para comparação.",
+            "comparison_period": "monthly"
         }
 
-    tx_list = []
-    for t in transactions:
-        tx_list.append({
-            "id": t.id,
-            "description": t.description,
-            "amount": float(t.amount),
-            "date": t.issue_date.isoformat(),
-            "category": t.category.name if hasattr(t, "category") and t.category else "",
-            "type": t.type,
-        })
+    difference = previous_period_expenses - current_period_expenses
+    percentage_change = (difference / previous_period_expenses) * 100
 
-    payload = {
-        "accountId": str(account_id),
-        "startDate": start_date.isoformat(),
-        "endDate": today.isoformat(),
-        "transactions": tx_list,
+    message = ""
+    if difference > 0:
+        message = (f"Houve uma economia de R$ {difference:.2f} em relação ao mês anterior, "
+                   f"representando uma diminuição de {percentage_change:.2f}% nos gastos.")
+    elif difference < 0:
+        absolute_difference = abs(difference)
+        absolute_percentage = abs(percentage_change)
+        message = (f"Houve um aumento de R$ {absolute_difference:.2f} nos gastos em relação ao mês anterior, "
+                   f"representando um aumento de {absolute_percentage:.2f}%.")
+    else:
+        message = "Seus gastos permaneceram os mesmos em relação ao mês anterior."
+
+    return {
+        "estimated_savings": round(difference, 2),
+        "savings_percentage": round(percentage_change, 2),
+        "message": message,
+        "comparison_period": "monthly"
     }
 
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
+# def fetch_savings_estimate(account_id, transactions_queryset, access_token):
+#     """
+#     Estima a economia mensal com base nas transações de receita e despesa.
+#     """
+#     today = date.today()
+#     start_date = today.replace(day=1) - relativedelta(months=3)
+    
+#     transactions = transactions_queryset.prefetch_related("category").filter(
+#         issue_date__gte=start_date,
+#         issue_date__lte=today
+#     )
 
-    url = f"{settings.REPORTS_SERVICE_URL}/savings/estimate"
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        log.error(
-            "Savings estimate request failed",
-            event_type="SAVINGS_ESTIMATE_REQUEST_FAILED",
-            event_details={
-                "account_id": str(account_id),
-                "request_url": url,
-                "reason": str(e)
-            },
-            exc_info=e
-        )
-        return 0.0
-    except ValueError as e:
-        log.error(
-            "Invalid response from savings estimate service",
-            event_type="SAVINGS_ESTIMATE_INVALID_RESPONSE",
-            event_details={"account_id": str(account_id), "request_url": url},
-            exc_info=e
-        )
-        return 0.0
+#     if len(transactions) == 0:
+#         return {
+#             "estimated_savings": 0,
+#             "savings_percentage": 0,
+#             "message": f"Não há transações no período atual.",
+#         }
+
+#     tx_list = []
+#     for t in transactions:
+#         tx_list.append({
+#             "id": t.id,
+#             "description": t.description,
+#             "amount": float(t.amount),
+#             "date": t.issue_date.isoformat(),
+#             "category": t.category.name if hasattr(t, "category") and t.category else "",
+#             "type": t.type,
+#         })
+
+#     payload = {
+#         "accountId": str(account_id),
+#         "startDate": start_date.isoformat(),
+#         "endDate": today.isoformat(),
+#         "transactions": tx_list,
+#     }
+
+#     headers = {
+#         "Authorization": f"Bearer {access_token}"
+#     }
+
+#     url = f"{settings.REPORTS_SERVICE_URL}/savings/estimate"
+#     try:
+#         response = requests.post(url, json=payload, headers=headers, timeout=10)
+#         response.raise_for_status()
+#         return response.json()
+#     except requests.exceptions.RequestException as e:
+#         log.error(
+#             "Savings estimate request failed",
+#             event_type="SAVINGS_ESTIMATE_REQUEST_FAILED",
+#             event_details={
+#                 "account_id": str(account_id),
+#                 "request_url": url,
+#                 "reason": str(e)
+#             },
+#             exc_info=e
+#         )
+#         return 0.0
+#     except ValueError as e:
+#         log.error(
+#             "Invalid response from savings estimate service",
+#             event_type="SAVINGS_ESTIMATE_INVALID_RESPONSE",
+#             event_details={"account_id": str(account_id), "request_url": url},
+#             exc_info=e
+#         )
+#         return 0.0
