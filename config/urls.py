@@ -3,15 +3,25 @@ from django.contrib import admin
 from django.urls import include
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView
+from rest_framework import permissions
 from drf_spectacular.views import SpectacularSwaggerView
 
 urlpatterns = [
     path("api/v1/", include("config.api_router")), 
 
-    path("api/v1/schema/", SpectacularAPIView.as_view(), name="api-schema"),
+    path(
+        "api/v1/schema/",
+        SpectacularAPIView.as_view(
+            permission_classes=[permissions.AllowAny],
+        ),
+        name="api-schema",
+    ),
     path(
         "api/v1/docs/",
-        SpectacularSwaggerView.as_view(url_name="api-schema"),
+        SpectacularSwaggerView.as_view(
+            url_name="api-schema",
+            permission_classes=[permissions.AllowAny],
+        ),
         name="api-docs",
     ),
 

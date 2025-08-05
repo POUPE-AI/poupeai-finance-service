@@ -1,7 +1,7 @@
 import uuid
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -72,9 +72,9 @@ class Transaction(TimeStampedModel):
     )
     is_installment = models.BooleanField(_('Is Installment'), default=False)
     installment_number = models.SmallIntegerField(_('Installment Number'), blank=True, null=True,
-                                                  validators=[MinValueValidator(1)])
+                                                  validators=[MinValueValidator(1), MaxValueValidator(24)])
     total_installments = models.SmallIntegerField(_('Total Installments'), blank=True, null=True,
-                                                  validators=[MinValueValidator(1)])
+                                                  validators=[MinValueValidator(1), MaxValueValidator(24)])
     purchase_group_uuid = models.UUIDField(_('Purchase Group UUID'), default=uuid.uuid4, editable=False, blank=True, null=True)
     original_purchase_description = models.TextField(_('Original Purchase Description'), blank=True, null=True)
 
