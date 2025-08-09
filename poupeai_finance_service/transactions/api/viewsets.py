@@ -203,3 +203,64 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         deletion_option = self.request.data.get('deletion_option', 'CURRENT_AND_FUTURE')
         TransactionService.delete_transaction(instance, deletion_option)
+
+import time
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import action
+from .serializers import PerformanceTestSerializer
+
+class TransactionPerformanceTestViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para demonstrar a otimização de queries com N+1 em larga escala.
+    Não requer autenticação.
+    """
+    queryset = Transaction.objects.all()
+    serializer_class = PerformanceTestSerializer
+    permission_classes = [AllowAny]
+
+    def _get_timed_response(self, queryset):
+        start_time = time.perf_counter()
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+        else:
+            serializer = self.get_serializer(queryset, many=True)
+            response = Response(serializer.data)
+
+        end_time = time.perf_counter()
+        processing_time_ms = (end_time - start_time) * 1000
+
+        if isinstance(response.data, dict) and 'results' in response.data:
+             response.data['processing_time_ms'] = f"{processing_time_ms:.2f} ms"
+        else:
+             response.data = {
+                 'processing_time_ms': f"{processing_time_ms:.2f} ms",
+                 'results': response.data
+             }
+        
+        return response
+
+
+    @action(detail=False, methods=['get'], url_path='unoptimized')
+    def unoptimized_list(self, request, *args, **kwargs):
+        """Cenário 1: O problema N+1 clássico (mas paginado)."""
+        queryset = Transaction.objects.all()
+        return self._get_timed_response(queryset)
+
+    @action(detail=False, methods=['get'], url_path='optimized-join')
+    def optimized_join_list(self, request, *args, **kwargs):
+        """Cenário 2: A otimização com select_related (JOIN gigante)."""
+        queryset = Transaction.objects.select_related(
+            'category', 'bank_account', 'credit_card'
+        ).all()
+        return self._get_timed_response(queryset)
+
+    @action(detail=False, methods=['get'], url_path='optimized-prefetch')
+    def optimized_prefetch_list(self, request, *args, **kwargs):
+        """Cenário 3: A otimização com prefetch_related."""
+        queryset = Transaction.objects.prefetch_related(
+            'category', 'bank_account', 'credit_card'
+        ).all()
+        return self._get_timed_response(queryset)

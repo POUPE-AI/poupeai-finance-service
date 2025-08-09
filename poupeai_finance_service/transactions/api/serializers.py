@@ -206,3 +206,24 @@ class TransactionCreateUpdateSerializer(TransactionBaseSerializer):
             return TransactionService.update_transaction(instance, validated_data, apply_to_all_installments)
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.message_dict)
+
+class PerformanceTestSerializer(serializers.ModelSerializer):
+    """
+    Um serializer de leitura simples para o teste de performance,
+    mostrando campos e seus objetos relacionados.
+    """
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    bank_account_name = serializers.CharField(source='bank_account.name', read_only=True)
+    credit_card_name = serializers.CharField(source='credit_card.name', read_only=True)
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id',
+            'description',
+            'amount',
+            'issue_date',
+            'category_name',
+            'bank_account_name',
+            'credit_card_name',
+        ]
