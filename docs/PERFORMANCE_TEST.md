@@ -94,10 +94,36 @@ Temos três endpoints para comparar, cada um representando uma estratégia difer
       - **No Postman:** O `processing_time_ms` deve ser **ligeiramente menor** que os dois cenários anteriores.
       - **Na Debug Toolbar:** O número de queries será pequeno (ex: 4 ou 5 queries). Todas serão extremamente rápidas individualmente, resultando no menor tempo total.
 
-### Resultados Esperados
+## Relatório de Performance (Resultados Esperados)
 
-| Cenário | Estratégia | Queries (p/ Página) | Análise |
-| :--- | :--- | :--- | :--- | :--- |
-| 1. Unoptimized | N+1 Paginado | \~25 | Muitas viagens ao banco. |
-| 2. Optimized JOIN | `select_related` | 1 | Custo do `JOIN` em larga escala. |
-| 3. Optimized Prefetch| `prefetch_related`| \~5 | Estratégia de query mais eficiente. |
+A tabela abaixo resume os resultados esperados ao testar os diferentes endpoints. Os valores de tempo são ilustrativos e podem variar dependendo da sua máquina, mas a ordem de grandeza e a diferença no número de queries serão consistentes.
+
+### Cenário 1: Paginação com 10 Itens (`?page_size=10`)
+
+| Estratégia | Nº de Queries (Debug Toolbar) | Tempo Total das Queries (ms) | Tempo de Processamento da API (ms) | Análise Rápida |
+| :--- | :---: | :---: | :---: | :--- |
+| **Não Otimizado** | \~22 | \~87 ms | \~130 ms | O problema N+1 ainda não é devastador. |
+| **`select_related`** | \~2 | \~91 ms | \~110 ms | Não tão eficiente. |
+| **`prefetch_related`** | **\~5** | **\~75 ms** | **\~87 ms** | **A melhor performance geral.** |
+
+### Cenário 2: Paginação com 100 Itens (`?page_size=100`)
+
+| Estratégia | Nº de Queries (Debug Toolbar) | Tempo Total das Queries (ms) | Tempo de Processamento da API (ms) | Análise Rápida |
+| :--- | :---: | :---: | :---: | :--- |
+| **Não Otimizado** | **\~202** | **\~250 ms** | **\~510 ms** | **Inviável.** O problema N+1 explode, tornando a API lenta. |
+| **`select_related`** | \~2 | \~87 ms | \~135 ms | O JOIN único se torna pesado e lento. |
+| **`prefetch_related`** | **\~5** | **\~65 ms** | **\~101 ms** | **Performance escala bem.** Continua rápido e eficiente. |
+
+### 💡 Análise dos Resultados
+
+  * **Não Otimizado (N+1):** Esta abordagem executa 1 query para a lista de transações e depois **N queries adicionais** para buscar os dados relacionados de cada uma das N transações. Como a tabela mostra, o número de queries e o tempo de resposta crescem linearmente com o tamanho da página, tornando a aplicação lenta rapidamente.
+
+  * **Otimizado com `select_related`:** Esta estratégia resolve o problema N+1 ao unir as tabelas em uma **única e grande query SQL (JOIN)**.
+
+  * **Otimizado com `prefetch_related` (A Estratégia Vencedora):** Esta é a solução ideal para o nosso caso. Ela funciona de forma mais inteligente:
+
+    1.  Executa a query principal para as transações.
+    2.  Executa **uma ou mais queries separadas** para buscar todos os dados relacionados necessários de uma só vez (usando a cláusula `WHERE id IN (...)`).
+    3.  Faz o "join" dos dados em Python.
+
+    Isso resulta em um número pequeno e **constante** de queries muito eficientes, independentemente do tamanho da página, garantindo performance e escalabilidade.
